@@ -1,0 +1,8 @@
+Features:-
+1:- CBC and more test parameters update
+2:- Dashboard and Reports page the net profit and Profit Margin is not calculated properly.
+3:- WhatsApp automatically report send.
+4:- Upload the Lab logo and that will be shown in the labs Invoice and Reports.
+5:- On the report the each category tests will come in one page if the test catagories are 4 and each has 1, 2,3 so on. Each catagories should come in individual pages
+6:- Put the dummy signature in the invoice and Report. Also give one more fiture in the lab_app settings for upload the signatures.
+7:- Give the logo upload option in the lap_app settings for the individual labs and also put that logo in the Invoice and report. Align it correctly in the header of the Invoice and Result.

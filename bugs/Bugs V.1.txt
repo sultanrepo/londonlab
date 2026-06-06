@@ -1,0 +1,5 @@
+Bugs:-
+
+1. The refer patient order is cancelled but in the doctor profile page, section Pending Commissions it is showing to be paid the cancelled order amount also. 
+
+2. After creating the subscription unpaid bill it is giving the one month validity but when we are marking the lab as paid the status it is again add one more month validity.

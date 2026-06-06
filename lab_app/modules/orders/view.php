@@ -1,0 +1,635 @@
+<?php
+$pageTitle = 'Order Details';
+require_once __DIR__ . '/../../includes/header.php';
+
+$id    = (int)($_GET['id'] ?? 0);
+$order = $labDb->fetch("
+    SELECT o.*, p.name as patient_name, p.patient_id as pid,
+           p.phone, p.gender, u.name as by_name
+    FROM orders o
+    JOIN patients p ON o.patient_id = p.id
+    LEFT JOIN users u ON o.created_by = u.id
+    WHERE o.id = ?
+", [$id]);
+
+if (!$order) {
+    labSetFlash('error','Order not found.');
+    header('Location: '.LAB_APP_URL.'/modules/orders/index.php?lab='.$slug);
+    exit;
+}
+
+$items = $labDb->fetchAll("
+    SELECT oi.*, t.name as test_name, t.code, t.normal_range, t.unit, t.id as test_db_id
+    FROM order_items oi
+    JOIN tests t ON oi.test_id = t.id
+    WHERE oi.order_id = ?
+    ORDER BY t.name
+", [$id]);
+
+$payments  = $labDb->fetchAll("SELECT * FROM payments WHERE order_id=? ORDER BY paid_at DESC", [$id]);
+$totalPaid = array_sum(array_column($payments, 'amount'));
+$balance   = $order['net_amount'] - $totalPaid;
+
+// Load sub-parameters for each test item
+$subParamsMap = [];
+foreach ($items as $item) {
+    $subs = $labDb->fetchAll("
+        SELECT sp.*, tsr.result_value, tsr.result_status, tsr.id as sub_result_id
+        FROM test_sub_parameters sp
+        LEFT JOIN test_sub_results tsr
+               ON tsr.sub_parameter_id = sp.id AND tsr.order_item_id = ?
+        WHERE sp.test_id = ? AND sp.is_active = 1
+        ORDER BY sp.sort_order
+    ", [$item['id'], $item['test_db_id']]);
+    if (!empty($subs)) $subParamsMap[$item['id']] = $subs;
+}
+
+// ── STATUS UPDATE ─────────────────────────────────────────────
+if (isset($_GET['status']) && labCanEdit()) {
+    $ns = $_GET['status'];
+    if (in_array($ns, ['pending','sample_collected','processing','completed','delivered','cancelled'])) {
+        $labDb->execute("UPDATE orders SET status=? WHERE id=?", [$ns, $id]);
+        labSetFlash('success', 'Status updated to '.ucwords(str_replace('_',' ',$ns)));
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+}
+
+// ── SAVE RESULTS (individual test) ────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
+    labVerifyCsrf();
+    $itemId = (int)($_POST['item_id'] ?? 0);
+
+    // Panel test — save sub-parameter results
+    if (!empty($_POST['sub_result'][$itemId])) {
+        foreach ($_POST['sub_result'][$itemId] as $subParamId => $resultVal) {
+            $resultVal = trim($resultVal);
+            $sp = $labDb->fetch("SELECT normal_range_male, normal_range_female FROM test_sub_parameters WHERE id=?", [$subParamId]);
+            $nRange = ($order['gender']==='Female') ? ($sp['normal_range_female']??'') : ($sp['normal_range_male']??'');
+            $st = ($resultVal !== '') ? autoStatus($resultVal, $nRange) : 'pending';
+
+            $exists = $labDb->fetch("SELECT id FROM test_sub_results WHERE order_item_id=? AND sub_parameter_id=?", [$itemId, $subParamId]);
+            if ($exists) {
+                $labDb->execute("UPDATE test_sub_results SET result_value=?,result_status=? WHERE id=?", [$resultVal,$st,$exists['id']]);
+            } else {
+                $labDb->execute("INSERT INTO test_sub_results (order_item_id,sub_parameter_id,result_value,result_status) VALUES (?,?,?,?)", [$itemId,$subParamId,$resultVal,$st]);
+            }
+        }
+        // Determine overall status from sub-results
+        $subStatuses = array_column($labDb->fetchAll("SELECT result_status FROM test_sub_results WHERE order_item_id=?", [$itemId]), 'result_status');
+        if      (in_array('critical',  $subStatuses)) $overall = 'critical';
+        elseif  (in_array('abnormal',  $subStatuses)) $overall = 'abnormal';
+        elseif  (in_array('pending',   $subStatuses)) $overall = 'pending';
+        else $overall = 'normal';
+        $labDb->execute("UPDATE order_items SET result_status=?, completed_at=IF(?!='pending',NOW(),NULL) WHERE id=?", [$overall,$overall,$itemId]);
+
+    } else {
+        // Simple test — single result
+        $val = trim($_POST['result_value'][$itemId] ?? '');
+        $st  = $_POST['result_status'][$itemId] ?? 'pending';
+        $nt  = trim($_POST['result_notes'][$itemId] ?? '');
+        $labDb->execute("UPDATE order_items SET result_value=?,result_status=?,result_notes=?,completed_at=IF(?!='pending',NOW(),NULL) WHERE id=? AND order_id=?",
+            [$val,$st,$nt,$st,$itemId,$id]);
+    }
+
+    // Auto-complete order if all items done
+    $pendingCount = $labDb->fetch("SELECT COUNT(*) as c FROM order_items WHERE order_id=? AND result_status='pending'", [$id])['c'];
+    if ($pendingCount == 0) $labDb->execute("UPDATE orders SET status='completed' WHERE id=?", [$id]);
+
+    labSetFlash('success', 'Results saved successfully!');
+    header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+    exit;
+}
+
+// ── ADD PAYMENT ───────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
+    labVerifyCsrf();
+    $amt = (float)($_POST['amount'] ?? 0);
+    $mth = $_POST['method'] ?? 'cash';
+    $ref = trim($_POST['transaction_ref'] ?? '');
+    if ($amt > 0) {
+        $labDb->execute("INSERT INTO payments (order_id,amount,method,transaction_ref,status,paid_at) VALUES (?,?,?,?,'completed',NOW())",
+            [$id,$amt,$mth,$ref]);
+        labSetFlash('success', labMoney($amt).' payment recorded.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+}
+
+// Auto-determine Normal / Abnormal from range string
+function autoStatus(string $value, string $range): string {
+    if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false) return 'normal';
+    $num = (float)$value;
+    if (!is_numeric(trim($value))) return 'normal';
+    if (preg_match('/^([\d.]+)-([\d.]+)$/', trim($range), $m))
+        return ($num < (float)$m[1] || $num > (float)$m[2]) ? 'abnormal' : 'normal';
+    if (preg_match('/^<([\d.]+)$/', trim($range), $m))  return $num >= (float)$m[1] ? 'abnormal' : 'normal';
+    if (preg_match('/^>([\d.]+)$/', trim($range), $m))  return $num <= (float)$m[1] ? 'abnormal' : 'normal';
+    return 'normal';
+}
+
+$pageTitle = labClean($order['order_no']);
+?>
+
+<style>
+.result-status-normal   { color:#166534; font-weight:700; }
+.result-status-abnormal { color:#c2410c; font-weight:700; }
+.result-status-critical { color:#991b1b; font-weight:700; }
+.result-status-pending  { color:#94a3b8; }
+
+.sub-table th { background:#f8faf9; font-size:11px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; padding:8px 12px; color:#64748b; border-bottom:2px solid #e2e8f0; }
+.sub-table td { padding:9px 12px; font-size:13px; border-bottom:1px solid #f1f5f3; vertical-align:middle; }
+.sub-table tr:last-child td { border-bottom:none; }
+.sub-table tr.row-abnormal { background:#fff7ed; }
+.sub-table tr.row-critical { background:#fee2e2; }
+
+.test-card { border:1px solid #e2e8f0; border-radius:12px; margin-bottom:16px; overflow:hidden; }
+.test-card-header { background:#f8faf9; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e2e8f0; }
+.test-card-body { padding:0; }
+</style>
+
+<div class="page-header">
+    <div>
+        <h2><i class="bi bi-clipboard2-check-fill me-2 text-warning"></i><?= labClean($order['order_no']) ?></h2>
+        <p><?= labClean($order['patient_name']) ?> &bull; <?= date('d M Y H:i', strtotime($order['order_date'])) ?></p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <span class="badge-status status-<?= $order['status'] ?> fs-6"><?= ucwords(str_replace('_',' ',$order['status'])) ?></span>
+        <a href="<?= LAB_APP_URL ?>/modules/orders/invoice.php?lab=<?= $slug ?>&id=<?= $id ?>" target="_blank" class="btn btn-outline-success">
+            <i class="bi bi-receipt me-2"></i>Invoice
+        </a>
+        <a href="<?= LAB_APP_URL ?>/modules/orders/report.php?lab=<?= $slug ?>&id=<?= $id ?>" target="_blank" class="btn btn-outline-info">
+            <i class="bi bi-file-earmark-medical me-2"></i>Report
+        </a>
+        <a href="<?= LAB_APP_URL ?>/modules/orders/index.php?lab=<?= $slug ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <!-- ── LEFT: TEST RESULTS ─────────────────────────── -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-droplet-half"></i> Test Results
+                <small class="text-muted ms-2 fw-normal">Click "Enter Result" on each test individually</small>
+            </div>
+            <div class="card-body">
+
+                <?php foreach ($items as $item):
+                    $isPanel   = !empty($subParamsMap[$item['id']]);
+                    $subParams = $subParamsMap[$item['id']] ?? [];
+                    $overallSt = $item['result_status'] ?? 'pending';
+                    $canEdit   = labCanReport() && !in_array($order['status'], ['delivered','cancelled']);
+
+                    // Count filled sub-params for panels
+                    $filledCount = 0;
+                    $totalCount  = count($subParams);
+                    if ($isPanel) {
+                        foreach ($subParams as $sp) {
+                            if ($sp['result_value'] !== null && $sp['result_value'] !== '') $filledCount++;
+                        }
+                    }
+                ?>
+
+                <div class="test-card">
+                    <!-- Test Header -->
+                    <div class="test-card-header">
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                <div class="fw-bold" style="font-size:15px;"><?= labClean($item['test_name']) ?></div>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <code style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;"><?= labClean($item['code']) ?></code>
+                                    <?php if ($isPanel): ?>
+                                    <span class="badge bg-info-subtle text-info" style="font-size:10px;">
+                                        <?= $filledCount ?>/<?= $totalCount ?> filled
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge-status status-<?= $overallSt ?>"><?= ucfirst($overallSt) ?></span>
+                            <?php if ($canEdit): ?>
+                            <button class="btn btn-sm btn-outline-success"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modal_<?= $item['id'] ?>">
+                                <i class="bi bi-pencil-fill me-1"></i>Enter Result
+                            </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Test Body: show results if any entered -->
+                    <?php if ($isPanel && $filledCount > 0): ?>
+                    <div class="test-card-body">
+                        <table class="table sub-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:35%">Parameter</th>
+                                    <th style="width:25%">Normal Range (<?= $order['gender'] ?>)</th>
+                                    <th style="width:12%">Unit</th>
+                                    <th style="width:18%">Result</th>
+                                    <th style="width:10%">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($subParams as $sp):
+                                    $rv  = $sp['result_value']  ?? '';
+                                    $rst = $sp['result_status'] ?? 'pending';
+                                    $nr  = ($order['gender']==='Female') ? $sp['normal_range_female'] : $sp['normal_range_male'];
+                                    $rowCls = $rst==='abnormal' ? 'row-abnormal' : ($rst==='critical' ? 'row-critical' : '');
+                                ?>
+                                <tr class="<?= $rowCls ?>">
+                                    <td>
+                                        <div class="fw-semibold"><?= labClean($sp['parameter_name']) ?></div>
+                                        <small class="text-muted"><?= labClean($sp['short_name']) ?></small>
+                                    </td>
+                                    <td class="text-muted" style="font-size:12px;"><?= labClean($nr ?? '—') ?></td>
+                                    <td class="text-muted" style="font-size:12px;"><?= labClean($sp['unit'] ?? '—') ?></td>
+                                    <td>
+                                        <?php if ($rv !== ''): ?>
+                                        <span class="result-status-<?= $rst ?> fs-6"><?= labClean($rv) ?></span>
+                                        <?php else: ?>
+                                        <span class="text-muted">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge-status status-<?= $rst ?>" style="font-size:10px;"><?= ucfirst($rst) ?></span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php elseif (!$isPanel && $item['result_value'] && $item['result_value'] !== 'pending'): ?>
+                    <!-- Simple test with result -->
+                    <div class="px-4 py-3 d-flex gap-4" style="font-size:13px;">
+                        <div>
+                            <span class="text-muted">Normal Range: </span>
+                            <span><?= labClean($item['normal_range']??'—') ?> <?= labClean($item['unit']??'') ?></span>
+                        </div>
+                        <div>
+                            <span class="text-muted">Result: </span>
+                            <span class="result-status-<?= $item['result_status'] ?> fs-6"><?= labClean($item['result_value']) ?></span>
+                        </div>
+                        <?php if ($item['result_notes']): ?>
+                        <div><span class="text-muted">Notes: </span><?= labClean($item['result_notes']) ?></div>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php else: ?>
+                    <!-- No result yet -->
+                    <div class="px-4 py-3 text-muted" style="font-size:13px;">
+                        <?php if ($isPanel): ?>
+                        <i class="bi bi-info-circle me-1"></i>
+                        <?= $totalCount ?> sub-parameters — click <strong>Enter Result</strong> to fill values.
+                        <?php else: ?>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Normal Range: <?= labClean($item['normal_range']??'—') ?> <?= labClean($item['unit']??'') ?> — not entered yet.
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+
+                </div><!-- /test-card -->
+
+                <?php endforeach; ?>
+
+            </div>
+        </div>
+
+        <!-- Payments -->
+        <div class="card">
+            <div class="card-header justify-content-between">
+                <span><i class="bi bi-cash"></i> Payments</span>
+                <?php if (labCanEdit()): ?>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#payModal">
+                    <i class="bi bi-plus me-1"></i>Add Payment
+                </button>
+                <?php endif; ?>
+            </div>
+            <div class="card-body p-0">
+                <?php if (empty($payments)): ?>
+                <p class="text-center text-muted py-4 small">No payments yet.</p>
+                <?php else: ?>
+                <table class="table mb-0">
+                    <thead><tr><th>Date</th><th>Method</th><th>Amount</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($payments as $pay): ?>
+                        <tr>
+                            <td><?= date('d M Y H:i',strtotime($pay['paid_at'])) ?></td>
+                            <td><?= ucfirst(str_replace('_',' ',$pay['method'])) ?></td>
+                            <td><strong><?= labMoney($pay['amount']) ?></strong></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RIGHT SIDEBAR ──────────────────────────────── -->
+    <div class="col-lg-4">
+
+        <!-- Invoice Summary -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-receipt"></i> Summary</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">Subtotal</span><strong><?= labMoney($order['total_amount']) ?></strong>
+                </div>
+                <?php if ($order['discount'] > 0): ?>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">Lab Discount</span><strong class="text-success">−<?= labMoney($order['discount']) ?></strong>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($order['doctor_discount']) && $order['doctor_discount'] > 0): ?>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span style="color:#d97706;">Doctor's Discount</span><strong class="text-warning">−<?= labMoney($order['doctor_discount']) ?></strong>
+                </div>
+                <?php endif; ?>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <strong>Net Total</strong><strong class="text-primary fs-5"><?= labMoney($order['net_amount']) ?></strong>
+                </div>
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">Paid</span><strong class="text-success"><?= labMoney($totalPaid) ?></strong>
+                </div>
+                <div class="d-flex justify-content-between py-2">
+                    <strong>Balance</strong>
+                    <strong class="<?= $balance>0?'text-danger':'text-success' ?>"><?= labMoney($balance) ?></strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Update -->
+        <?php if (labCanEdit() && !in_array($order['status'],['delivered','cancelled'])): ?>
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-arrow-repeat"></i> Update Status</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <?php
+                    $nextMap = [
+                        'pending'          => ['sample_collected'=>'✅ Sample Collected','cancelled'=>'❌ Cancel'],
+                        'sample_collected' => ['processing'=>'🔬 Mark Processing'],
+                        'processing'       => ['completed'=>'✔️ Mark Completed'],
+                        'completed'        => ['delivered'=>'📦 Mark Delivered'],
+                    ];
+                    foreach ($nextMap[$order['status']]??[] as $ns=>$lbl): ?>
+                    <a href="?lab=<?= $slug ?>&id=<?= $id ?>&status=<?= $ns ?>"
+                       class="btn btn-sm <?= str_contains($ns,'cancel')?'btn-outline-danger':'btn-outline-success' ?>"
+                       onclick="return confirm('Update to: <?= htmlspecialchars($lbl) ?>?')">
+                        <?= $lbl ?>
+                    </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Patient -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person"></i> Patient</div>
+            <div class="card-body">
+                <div class="fw-bold"><?= labClean($order['patient_name']) ?></div>
+                <div class="text-muted small mb-1"><?= labClean($order['pid']) ?></div>
+                <div class="small mb-2"><?= labClean($order['phone']) ?></div>
+                <div class="small text-muted mb-3">Gender: <strong><?= labClean($order['gender']) ?></strong></div>
+                <a href="<?= LAB_APP_URL ?>/modules/patients/view.php?lab=<?= $slug ?>&id=<?= $order['patient_id'] ?>"
+                   class="btn btn-sm btn-outline-primary">View Patient</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     INDIVIDUAL RESULT MODALS (one per test)
+     ═══════════════════════════════════════════════════════ -->
+<?php foreach ($items as $item):
+    $isPanel   = !empty($subParamsMap[$item['id']]);
+    $subParams = $subParamsMap[$item['id']] ?? [];
+?>
+<div class="modal fade" id="modal_<?= $item['id'] ?>" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog <?= $isPanel ? 'modal-xl' : 'modal-md' ?>">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                <input type="hidden" name="save_results" value="1">
+                <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
+
+                <div class="modal-header" style="background:#f8faf9;border-bottom:2px solid #e2e8f0;">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0"><?= labClean($item['test_name']) ?></h5>
+                        <small class="text-muted">
+                            <code><?= labClean($item['code']) ?></code>
+                            &bull; Patient: <?= labClean($order['patient_name']) ?>
+                            &bull; Gender: <strong><?= labClean($order['gender']) ?></strong>
+                        </small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <?php if ($isPanel): ?>
+                    <!-- ── PANEL TEST: sub-parameters grid ── -->
+                    <div class="alert alert-info py-2 mb-3" style="font-size:13px;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Normal ranges shown for <strong><?= $order['gender'] ?></strong>.
+                        Status (Normal/Abnormal) updates automatically as you type.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table sub-table mb-0" style="font-size:13px;">
+                            <thead>
+                                <tr>
+                                    <th style="width:28%">Parameter</th>
+                                    <th style="width:22%">Normal Range</th>
+                                    <th style="width:10%">Unit</th>
+                                    <th style="width:25%">Enter Value</th>
+                                    <th style="width:15%">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($subParams as $sp):
+                                    $nr  = ($order['gender']==='Female') ? $sp['normal_range_female'] : $sp['normal_range_male'];
+                                    $rv  = $sp['result_value'] ?? '';
+                                    $rst = $sp['result_status'] ?? 'pending';
+                                ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold"><?= labClean($sp['parameter_name']) ?></div>
+                                        <small class="text-muted"><?= labClean($sp['short_name']) ?></small>
+                                    </td>
+                                    <td class="text-muted" style="font-size:12px;"><?= labClean($nr ?? '—') ?></td>
+                                    <td class="text-muted" style="font-size:12px;"><?= labClean($sp['unit'] ?? '—') ?></td>
+                                    <td>
+                                        <input type="number"
+                                               step="any"
+                                               name="sub_result[<?= $item['id'] ?>][<?= $sp['id'] ?>]"
+                                               class="form-control form-control-sm sub-input"
+                                               data-range="<?= labClean($nr ?? '') ?>"
+                                               data-itemid="<?= $item['id'] ?>"
+                                               data-paramid="<?= $sp['id'] ?>"
+                                               value="<?= labClean($rv) ?>"
+                                               placeholder="—"
+                                               autocomplete="off">
+                                    </td>
+                                    <td>
+                                        <span class="badge-status status-<?= $rst ?> live-status-<?= $item['id'] ?>_<?= $sp['id'] ?>"
+                                              style="font-size:10px;">
+                                            <?= ucfirst($rst) ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php else: ?>
+                    <!-- ── SIMPLE TEST: single result ── -->
+                    <div class="p-2">
+                        <div class="alert alert-light py-2 mb-3" style="font-size:13px;border:1px solid #e2e8f0;">
+                            <strong>Normal Range:</strong>
+                            <?= labClean($item['normal_range']??'—') ?>
+                            <?php if ($item['unit'] && $item['unit']!=='Multiple' && $item['unit']!=='—'): ?>
+                            &nbsp;<?= labClean($item['unit']) ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Result Value</label>
+                                <input type="text"
+                                       name="result_value[<?= $item['id'] ?>]"
+                                       class="form-control form-control-lg"
+                                       value="<?= labClean($item['result_value']??'') ?>"
+                                       placeholder="Enter result..."
+                                       autofocus>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Status</label>
+                                <select name="result_status[<?= $item['id'] ?>]" class="form-select form-select-lg">
+                                    <?php foreach (['pending','normal','abnormal','critical'] as $rs): ?>
+                                    <option value="<?= $rs ?>" <?= ($item['result_status']==$rs)?'selected':'' ?>>
+                                        <?= ucfirst($rs) ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Notes</label>
+                                <input type="text"
+                                       name="result_notes[<?= $item['id'] ?>]"
+                                       class="form-control form-control-lg"
+                                       value="<?= labClean($item['result_notes']??'') ?>"
+                                       placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                </div>
+
+                <div class="modal-footer" style="background:#f8faf9;">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg px-4">
+                        <i class="bi bi-check-lg me-2"></i>Save Results
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endforeach; ?>
+
+
+<!-- Payment Modal -->
+<div class="modal fade" id="payModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                <input type="hidden" name="add_payment" value="1">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Amount (₹)</label>
+                        <input type="number" name="amount" class="form-control" step="0.01" min="0.01"
+                               value="<?= max(0,$balance) ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Method</label>
+                        <select name="method" class="form-select">
+                            <?php foreach (['cash'=>'Cash','upi'=>'UPI','card'=>'Card','bank_transfer'=>'Bank Transfer'] as $v=>$l): ?>
+                            <option value="<?= $v ?>"><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reference (Optional)</label>
+                        <input type="text" name="transaction_ref" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check me-1"></i>Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<?php
+$extraJs = <<<'JS'
+<script>
+// Live Normal/Abnormal badge update as user types in sub-parameter inputs
+document.querySelectorAll('.sub-input').forEach(function(input) {
+    input.addEventListener('input', function() {
+        const itemId   = this.dataset.itemid;
+        const paramId  = this.dataset.paramid;
+        const range    = this.dataset.range || '';
+        const val      = this.value.trim();
+        const badgeSel = '.live-status-' + itemId + '_' + paramId;
+        const badge    = document.querySelector(badgeSel);
+        if (!badge) return;
+
+        if (val === '') {
+            badge.className = 'badge-status status-pending live-status-' + itemId + '_' + paramId;
+            badge.textContent = 'Pending';
+            return;
+        }
+
+        const num = parseFloat(val);
+        let status = 'normal';
+
+        // Range: "4000-11000"
+        const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
+        if (dashM) {
+            status = (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
+        }
+        // Range: "<200"
+        const ltM = range.match(/^<([\d.]+)$/);
+        if (ltM) status = num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
+        // Range: ">40"
+        const gtM = range.match(/^>([\d.]+)$/);
+        if (gtM) status = num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
+
+        badge.className = 'badge-status status-' + status + ' live-status-' + itemId + '_' + paramId;
+        badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    });
+});
+</script>
+JS;
+?>
+
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
