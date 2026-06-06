@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= $labInfo ? labClean($labInfo['name']) : 'Lab Login' ?> — <?= PLATFORM_NAME ?></title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -65,7 +66,7 @@ body{font-family:'DM Sans',sans-serif;background:#f1f5f3;min-height:100vh;displa
     <div class="login-left">
         <div>
             <div class="brand-mark">
-                <div class="icon"><i class="bi bi-activity"></i></div>
+                <div class="icon"><img src="/londonlab/superadmin/assets/logos/LondonLab_Logo.png" alt="Logo" height="50" ></div>
                 <div class="name">
                     <strong><?= $labInfo ? labClean($labInfo['name']) : 'LondonLab' ?></strong>
                     <span>LABORATORY SYSTEM</span>

@@ -62,7 +62,7 @@ body { font-family: 'DM Sans', sans-serif; background: #f5f5f5; color: #1e293b; 
 .wrap { max-width: 820px; margin: 30px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
 
 /* ── HEADER ── */
-.head { background: linear-gradient(135deg, #0d3d28, #1a6b4a); color: #fff; }
+.head{background:linear-gradient(135deg,#50a7c2,#b7f8db);color:#1e293b;padding:0}
 .head-top { padding: 24px 36px; display: flex; justify-content: space-between; align-items: flex-start; }
 .lab-name { font-size: 22px; font-weight: 700; }
 .lab-sub  { font-size: 11px; opacity: .6; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
@@ -104,14 +104,14 @@ body { font-family: 'DM Sans', sans-serif; background: #f5f5f5; color: #1e293b; 
 /* ── SUB-PARAMETER TABLE ── */
 table { width: 100%; border-collapse: collapse; }
 .sub-head th {
-    background: #f0fdf4;
-    color: #166534;
+    background: #ffffff;
+    color: #54AAC3;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: .5px;
     text-transform: uppercase;
     padding: 8px 12px;
-    border-bottom: 2px solid #bbf7d0;
+    border-bottom: 2px solid #8BD5D0;
     text-align: left;
 }
 .sub-body td {

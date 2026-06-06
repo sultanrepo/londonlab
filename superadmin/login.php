@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= PLATFORM_NAME ?> — Super Admin Login</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -44,7 +45,7 @@ h2{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
 </head>
 <body>
 <div class="login-wrap">
-    <div class="logo"><i class="bi bi-activity"></i></div>
+    <div class="logo"><img src="/londonlab/superadmin/assets/logos/LondonLab_Logo.png" alt="Logo" height="60" ></div>
     <h2><?= PLATFORM_NAME ?></h2>
     <p class="subtitle">Super Admin Panel — Restricted Access</p>
 
