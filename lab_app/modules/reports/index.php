@@ -7,7 +7,8 @@ $to   = $_GET['to']   ?? date('Y-m-d');
 
 $revenue      = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE status='completed' AND DATE(paid_at) BETWEEN ? AND ?",[$from,$to])['s'];
 $expenses     = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM expenses WHERE expense_date BETWEEN ? AND ?",[$from,$to])['s'];
-$netProfit    = $revenue - $expenses;
+$commissions  = (float)$labDb->fetch("SELECT COALESCE(SUM(commission_amount),0) as s FROM doctor_commissions WHERE status IN ('pending','paid') AND DATE(created_at) BETWEEN ? AND ?",[$from,$to])['s'];
+$netProfit    = $revenue - $expenses - $commissions;
 $newOrders    = (int)$labDb->fetch("SELECT COUNT(*) as c FROM orders WHERE DATE(order_date) BETWEEN ? AND ?",[$from,$to])['c'];
 $newPatients  = (int)$labDb->fetch("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at) BETWEEN ? AND ?",[$from,$to])['c'];
 $avgOrder     = $newOrders > 0 ? (float)$labDb->fetch("SELECT AVG(net_amount) as a FROM orders WHERE DATE(order_date) BETWEEN ? AND ?",[$from,$to])['a'] : 0;
@@ -40,7 +41,7 @@ $expByCat    = $labDb->fetchAll("SELECT category,SUM(amount) as total FROM expen
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon green"><i class="bi bi-currency-rupee"></i></div><div class="stat-info"><div class="label">Revenue</div><div class="value"><?= labMoney($revenue) ?></div><div class="change"><?= $newOrders ?> orders</div></div></div></div>
     <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon red"><i class="bi bi-cash-stack"></i></div><div class="stat-info"><div class="label">Expenses</div><div class="value"><?= labMoney($expenses) ?></div></div></div></div>
-    <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon <?= $netProfit>=0?'green':'red' ?>"><i class="bi bi-graph-up-arrow"></i></div><div class="stat-info"><div class="label">Net Profit</div><div class="value <?= $netProfit<0?'text-danger':'' ?>"><?= labMoney($netProfit) ?></div><div class="change">Margin: <?= $revenue>0?number_format($netProfit/$revenue*100,1):0 ?>%</div></div></div></div>
+    <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon <?= $netProfit>=0?'green':'red' ?>"><i class="bi bi-graph-up-arrow"></i></div><div class="stat-info"><div class="label">Net Profit</div><div class="value <?= $netProfit<0?'text-danger':'' ?>"><?= labMoney($netProfit) ?></div><div class="change">Margin: <?= $revenue>0?number_format($netProfit/$revenue*100,1):0 ?>% · Comm: <?= labMoney($commissions) ?></div></div></div></div>
     <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon blue"><i class="bi bi-clipboard2-pulse-fill"></i></div><div class="stat-info"><div class="label">Orders</div><div class="value"><?= $newOrders ?></div><div class="change">Avg <?= labMoney($avgOrder) ?></div></div></div></div>
     <div class="col-sm-6 col-xl-4"><div class="stat-card"><div class="stat-icon purple"><i class="bi bi-people-fill"></i></div><div class="stat-info"><div class="label">New Patients</div><div class="value"><?= $newPatients ?></div></div></div></div>
 </div>

@@ -1,5 +1,5 @@
 Features:-
-1:- CBC and more test parameters update
+
 2:- Dashboard and Reports page the net profit and Profit Margin is not calculated properly.
 3:- WhatsApp automatically report send.
 4:- Upload the Lab logo and that will be shown in the labs Invoice and Reports.

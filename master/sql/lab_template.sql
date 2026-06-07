@@ -267,8 +267,7 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@cbc_id, 'MPV',                         'MPV',      '7.0-11.0',   '7.0-11.0',   'fL',        16),
 (@cbc_id, 'PDW',                         'PDW',      '9.0-17.0',   '9.0-17.0',   '%',         17),
 (@cbc_id, 'PCT',                         'PCT',      '0.10-0.50',  '0.10-0.50',  '%',         18),
-(@cbc_id, 'P-LCR',                       'P-LCR',    '11-45',      '11-45',      '%',         19),
-(@cbc_id, 'ESR (1st Hour)',              'ESR',      '0-15',       '0-20',       'mm/hr',     20);
+(@cbc_id, 'P-LCR',                       'P-LCR',    '11-45',      '11-45',      '%',         19);
 
 -- LFT Sub-Parameters
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES

@@ -74,10 +74,10 @@ h2{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px}
         </button>
     </form>
 
-    <div class="hint">
+    <!-- <div class="hint">
         <strong>🔑 Default Credentials</strong>
         Email: <code>admin@londonlab.com</code> &nbsp; Password: <code>password</code>
-    </div>
+    </div> -->
 </div>
 </body>
 </html>

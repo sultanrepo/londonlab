@@ -5,9 +5,10 @@ require_once __DIR__ . '/includes/header.php';
 // KPI stats
 $totalPatients  = $labDb->fetch("SELECT COUNT(*) as c FROM patients WHERE is_active=1")['c'];
 $totalOrders    = $labDb->fetch("SELECT COUNT(*) as c FROM orders")['c'];
-$totalRevenue   = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE status='completed'")['s'];
-$totalExpenses  = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM expenses")['s'];
-$netProfit      = $totalRevenue - $totalExpenses;
+$totalRevenue     = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE status='completed'")['s'];
+$totalExpenses    = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM expenses")['s'];
+$totalCommissions = (float)$labDb->fetch("SELECT COALESCE(SUM(commission_amount),0) as s FROM doctor_commissions WHERE status IN ('pending','paid')")['s'];
+$netProfit        = $totalRevenue - $totalExpenses - $totalCommissions;
 $pendingOrders  = $labDb->fetch("SELECT COUNT(*) as c FROM orders WHERE status IN ('pending','sample_collected','processing')")['c'];
 
 $todayPatients  = $labDb->fetch("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at)=CURDATE()")['c'];
@@ -77,7 +78,7 @@ $catDist = $labDb->fetchAll("
             <div class="stat-info">
                 <div class="label">Net Profit</div>
                 <div class="value"><?= labMoney($netProfit) ?></div>
-                <div class="change">Exp: <?= labMoney($totalExpenses) ?></div>
+                <div class="change">Exp: <?= labMoney($totalExpenses) ?> · Comm: <?= labMoney($totalCommissions) ?></div>
             </div>
         </div>
     </div>
