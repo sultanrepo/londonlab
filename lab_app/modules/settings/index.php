@@ -4,7 +4,8 @@ require_once __DIR__ . '/../../includes/header.php';
 if (!labIsAdmin()) { labSetFlash('error','Admins only.'); header('Location: '.LAB_APP_URL.'/index.php?lab='.$slug); exit; }
 
 $errors  = [];
-$logoUrl = labGetSetting($labDb, 'lab_logo', '');
+$logoUrl = labGetSetting($labDb, 'lab_logo',      '');
+$sigUrl  = labGetSetting($labDb, 'lab_signature', '');
 
 // ── LOGO UPLOAD ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_logo') {
@@ -62,6 +63,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Reload logo after possible upload
 $logoUrl = labGetSetting($labDb, 'lab_logo', '');
+
+// ── SIGNATURE UPLOAD ──────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_signature') {
+    labVerifyCsrf();
+
+    // Handle signature deletion
+    if (isset($_POST['delete_signature'])) {
+        $oldPath = ROOT_PATH . '/lab_app' . parse_url($sigUrl, PHP_URL_PATH);
+        if ($sigUrl && file_exists($oldPath)) @unlink($oldPath);
+        $labDb->execute("INSERT INTO settings (setting_key,setting_value) VALUES ('lab_signature','') ON DUPLICATE KEY UPDATE setting_value=''");
+        labSetFlash('success', 'Signature removed.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug); exit;
+    }
+
+    // Handle signature upload
+    if (!empty($_FILES['lab_signature']['tmp_name'])) {
+        $file     = $_FILES['lab_signature'];
+        $allowed  = ['image/png','image/jpeg','image/jpg','image/webp'];
+        $maxBytes = 2 * 1024 * 1024; // 2 MB
+
+        if (!in_array($file['type'], $allowed)) {
+            $errors[] = 'Invalid file type. Please upload PNG, JPG, or WebP.';
+        } elseif ($file['size'] > $maxBytes) {
+            $errors[] = 'File too large. Maximum size is 2 MB.';
+        } else {
+            $uploadDir = ROOT_PATH . '/lab_app/assets/signatures/' . $slug . '/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+            // Delete old signature file if exists
+            if ($sigUrl) {
+                $oldPath = ROOT_PATH . '/lab_app' . parse_url($sigUrl, PHP_URL_PATH);
+                if (file_exists($oldPath)) @unlink($oldPath);
+            }
+
+            $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $filename = 'signature_' . time() . '.' . $ext;
+            $savePath = $uploadDir . $filename;
+
+            if (move_uploaded_file($file['tmp_name'], $savePath)) {
+                $relUrl = '/assets/signatures/' . $slug . '/' . $filename;
+                $labDb->execute("INSERT INTO settings (setting_key,setting_value) VALUES ('lab_signature',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)", [$relUrl]);
+                labSetFlash('success', 'Signature uploaded successfully!');
+                header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug); exit;
+            } else {
+                $errors[] = 'Upload failed. Please check folder permissions.';
+            }
+        }
+    } else {
+        $errors[] = 'Please select a file to upload.';
+    }
+}
+
+// Reload both after possible uploads
+$logoUrl = labGetSetting($labDb, 'lab_logo',      '');
+$sigUrl  = labGetSetting($labDb, 'lab_signature', '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_settings') {
     labVerifyCsrf();
@@ -228,6 +284,55 @@ $userCount  = $labDb->fetch("SELECT COUNT(*) as c FROM users WHERE is_active=1")
                     <input type="hidden" name="delete_logo" value="1">
                     <button type="submit" class="btn btn-outline-danger btn-sm w-100">
                         <i class="bi bi-trash me-2"></i>Remove Logo
+                    </button>
+                </form>
+                <?php endif; ?>
+
+            </div>
+        </div>
+
+        <!-- Signature Upload -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-pen-fill"></i> Authorised Signature</div>
+            <div class="card-body">
+
+                <?php if ($sigUrl): ?>
+                <div class="text-center mb-3 p-3 rounded-2" style="background:#f8faf9;border:1px dashed #d1d5db;">
+                    <img src="<?= LAB_APP_URL . labClean($sigUrl) ?>"
+                         alt="Signature"
+                         style="max-height:70px;max-width:100%;object-fit:contain;">
+                    <div class="mt-2" style="font-size:12px;color:#64748b;">Current signature</div>
+                </div>
+                <?php else: ?>
+                <div class="text-center mb-3 p-4 rounded-2" style="background:#f8faf9;border:2px dashed #d1d5db;color:#94a3b8;">
+                    <i class="bi bi-pen" style="font-size:28px;"></i>
+                    <div class="mt-2" style="font-size:13px;">No signature uploaded yet</div>
+                    <div style="font-size:11px;margin-top:4px;">Appears on reports &amp; invoices</div>
+                </div>
+                <?php endif; ?>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                    <input type="hidden" name="action"     value="upload_signature">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size:13px;">Upload signature image</label>
+                        <input type="file" name="lab_signature" class="form-control form-control-sm"
+                               accept="image/png,image/jpeg,image/jpg,image/webp">
+                        <div class="form-text">PNG or JPG · Max 2 MB · Use transparent PNG for best results</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-upload me-2"></i>Upload Signature
+                    </button>
+                </form>
+
+                <?php if ($sigUrl): ?>
+                <form method="POST" class="mt-2"
+                      onsubmit="return confirm('Remove the current signature?')">
+                    <input type="hidden" name="csrf_token"       value="<?= labCsrfToken() ?>">
+                    <input type="hidden" name="action"           value="upload_signature">
+                    <input type="hidden" name="delete_signature" value="1">
+                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash me-2"></i>Remove Signature
                     </button>
                 </form>
                 <?php endif; ?>

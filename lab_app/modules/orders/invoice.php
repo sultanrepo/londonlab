@@ -21,6 +21,7 @@ $labPhone   = labGetSetting($labDb,'lab_phone','');
 $labEmail   = labGetSetting($labDb,'lab_email','');
 $labGstin   = labGetSetting($labDb,'lab_gstin','');
 $labLogo    = labGetSetting($labDb,'lab_logo','');
+$labSig     = labGetSetting($labDb,'lab_signature','');
 $footer     = labGetSetting($labDb,'report_footer','Results are for clinical guidance only. Consult your physician.');
 ?>
 <!DOCTYPE html>
@@ -55,7 +56,7 @@ tbody tr:last-child td{border-bottom:none}
 .tr.final{font-size:16px;font-weight:700;border-top:2px solid #1a6b4a;border-bottom:none;color:#1a6b4a;padding-top:10px;margin-top:4px}
 .pay-chip{display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;margin:4px}
 .sig{display:flex;justify-content:space-between;margin-top:44px}
-.sig-box{text-align:center}.sig-line{width:140px;border-top:1px solid #cbd5e1;margin:40px auto 6px}
+.sig-box{text-align:center}.sig-img{max-height:48px;max-width:140px;object-fit:contain;display:block;margin:0 auto}.sig-spacer{height:40px}.sig-line{width:140px;border-top:1px solid #cbd5e1;margin:8px auto 6px}
 .foot{background:#f8faf9;border-top:1px solid #e2e8f0;padding:16px 36px;display:flex;justify-content:space-between;font-size:12px;color:#64748b}
 .pbar{display:flex;gap:10px;justify-content:center;padding:16px;background:#fff;max-width:780px;margin:0 auto}
 .pbar button,.pbar a{padding:10px 24px;border-radius:8px;font-size:14px;font-family:inherit;font-weight:600;cursor:pointer;text-decoration:none}
@@ -146,8 +147,22 @@ tbody tr:last-child td{border-bottom:none}
         <div style="margin-top:20px;padding:12px;background:#fafafa;border-radius:8px;font-size:13px;"><strong>Notes:</strong> <?= labClean($order['notes']) ?></div>
         <?php endif; ?>
         <div class="sig">
-            <div class="sig-box"><div class="sig-line"></div><small style="color:#64748b;">Patient / Attendee</small></div>
-            <div class="sig-box"><div class="sig-line"></div><small style="color:#64748b;">Authorized Signatory</small></div>
+            <div class="sig-box">
+                <div class="sig-spacer"></div>
+                <div class="sig-line"></div>
+                <small style="color:#64748b;">Patient / Attendee</small>
+            </div>
+            <div class="sig-box">
+                <?php if ($labSig): ?>
+                <img src="<?= LAB_APP_URL . labClean($labSig) ?>"
+                     alt="Authorised Signature"
+                     class="sig-img">
+                <?php else: ?>
+                <div class="sig-spacer"></div>
+                <?php endif; ?>
+                <div class="sig-line"></div>
+                <small style="color:#64748b;">Authorized Signatory</small>
+            </div>
         </div>
     </div>
     <div class="foot"><div><?= labClean($footer) ?></div><div>Generated: <?= date('d M Y H:i') ?></div></div>
