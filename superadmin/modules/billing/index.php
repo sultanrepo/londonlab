@@ -13,20 +13,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
     $db->execute("UPDATE billing_invoices SET status='paid',paid_at=NOW(),payment_method=?,transaction_ref=? WHERE id=?",
         [$method, $ref, $iid]);
 
-    // Extend lab subscription by 30 days
+    // Activate lab subscription for 30 days from today (payment date)
     $inv = $db->fetch("SELECT * FROM billing_invoices WHERE id=?", [$iid]);
     if ($inv) {
-        $lab = $db->fetch("SELECT * FROM labs WHERE id=?", [$inv['lab_id']]);
-        $base = ($lab['subscription_ends_at'] && strtotime($lab['subscription_ends_at']) > time())
-            ? $lab['subscription_ends_at'] : date('Y-m-d');
-        $newEnd = date('Y-m-d', strtotime($base . ' +30 days'));
+        $startDate = date('Y-m-d');               // always today
+        $newEnd    = date('Y-m-d', strtotime('+30 days'));
         $db->execute("UPDATE labs SET status='active',subscription_ends_at=?,last_payment_at=NOW() WHERE id=?",
             [$newEnd, $inv['lab_id']]);
-        // Record subscription
-        $db->execute("INSERT INTO subscriptions (lab_id,plan_id,start_date,end_date,amount,status) VALUES (?,?,CURDATE(),?,?,'active')",
-            [$inv['lab_id'], $inv['plan_id'], $newEnd, $inv['amount']]);
+        // Record subscription period starting today
+        $db->execute("INSERT INTO subscriptions (lab_id,plan_id,start_date,end_date,amount,status) VALUES (?,?,?,?,?,'active')",
+            [$inv['lab_id'], $inv['plan_id'], $startDate, $newEnd, $inv['amount']]);
     }
-    saSetFlash('success', 'Invoice marked as paid. Subscription extended by 30 days.');
+    saSetFlash('success', 'Invoice marked as paid. Subscription active until ' . date('d M Y', strtotime('+30 days')) . '.');
     header('Location: ' . SUPERADMIN_URL . '/modules/billing/index.php'); exit;
 }
 

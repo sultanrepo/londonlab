@@ -75,6 +75,98 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
                 $labDb->execute("INSERT INTO test_sub_results (order_item_id,sub_parameter_id,result_value,result_status) VALUES (?,?,?,?)", [$itemId,$subParamId,$resultVal,$st]);
             }
         }
+
+        // ── AUTO-CALCULATE FORMULA FIELDS ─────────────────────
+        // Get test code for this order item
+        $testCode = $labDb->fetch("SELECT t.code FROM order_items oi JOIN tests t ON oi.test_id=t.id WHERE oi.id=?", [$itemId])['code'] ?? '';
+
+        // Helper: get a sub-result value by short_name for this order item
+        $getVal = function(string $shortName) use ($labDb, $itemId): ?float {
+            $row = $labDb->fetch("
+                SELECT tsr.result_value FROM test_sub_results tsr
+                JOIN test_sub_parameters sp ON tsr.sub_parameter_id = sp.id
+                WHERE tsr.order_item_id = ? AND sp.short_name = ?
+            ", [$itemId, $shortName]);
+            return ($row && $row['result_value'] !== '') ? (float)$row['result_value'] : null;
+        };
+
+        // Helper: upsert a calculated sub-result
+        $saveCalc = function(string $shortName, float $value) use ($labDb, $itemId, $order) {
+            $sp = $labDb->fetch("
+                SELECT sp.id, sp.normal_range_male, sp.normal_range_female
+                FROM test_sub_parameters sp
+                JOIN test_sub_results tsr ON tsr.sub_parameter_id = sp.id
+                WHERE tsr.order_item_id = ? AND sp.short_name = ?
+                UNION
+                SELECT sp.id, sp.normal_range_male, sp.normal_range_female
+                FROM test_sub_parameters sp
+                JOIN order_items oi ON oi.id = ?
+                JOIN tests t ON oi.test_id = t.id AND sp.test_id = t.id
+                WHERE sp.short_name = ?
+                LIMIT 1
+            ", [$itemId, $shortName, $itemId, $shortName]);
+            if (!$sp) return;
+            $nRange = ($order['gender']==='Female') ? ($sp['normal_range_female']??'') : ($sp['normal_range_male']??'');
+            $st = autoStatus((string)$value, $nRange);
+            $rounded = round($value, 2);
+            $exists = $labDb->fetch("SELECT id FROM test_sub_results WHERE order_item_id=? AND sub_parameter_id=?", [$itemId, $sp['id']]);
+            if ($exists) {
+                $labDb->execute("UPDATE test_sub_results SET result_value=?,result_status=? WHERE id=?", [$rounded,$st,$exists['id']]);
+            } else {
+                $labDb->execute("INSERT INTO test_sub_results (order_item_id,sub_parameter_id,result_value,result_status) VALUES (?,?,?,?)", [$itemId,$sp['id'],$rounded,$st]);
+            }
+        };
+
+        // ── CBC Formulas ──────────────────────────────────────
+        if ($testCode === 'CBC') {
+            // HB% = Haemoglobin × 7
+            $hgb = $getVal('HGB');
+            if ($hgb !== null) {
+                $saveCalc('HB%', $hgb * 7);
+            }
+        }
+
+        // ── KFT Formulas ──────────────────────────────────────
+        if ($testCode === 'KFT') {
+            // BUN = Blood Urea × 0.467
+            $urea = $getVal('UREA');
+            if ($urea !== null) {
+                $saveCalc('BUN', $urea * 0.467);
+            }
+        }
+
+        // ── LFT Formulas ──────────────────────────────────────
+        if ($testCode === 'LFT') {
+            // Indirect Bilirubin = Total Bilirubin − Direct Bilirubin
+            $tbili = $getVal('T.BILI');
+            $dbili = $getVal('D.BILI');
+            if ($tbili !== null && $dbili !== null) {
+                $saveCalc('I.BILI', $tbili - $dbili);
+            }
+            // Globulin = Total Protein − Albumin
+            $tprot = $getVal('T.PROT');
+            $alb   = $getVal('ALB');
+            if ($tprot !== null && $alb !== null) {
+                $glob = $tprot - $alb;
+                $saveCalc('GLOB', $glob);
+                // A:G Ratio = Albumin ÷ Globulin
+                if ($glob > 0) {
+                    $saveCalc('A:G', round($alb / $glob, 2));
+                }
+            }
+        }
+
+        // ── PT/INR Formulas ───────────────────────────────────
+        if ($testCode === 'PTINR') {
+            // Prothrombin Ratio = PT Test ÷ Control Plasma
+            $ptTest  = $getVal('PT TEST');
+            $control = $getVal('CONTROL');
+            if ($ptTest !== null && $control !== null && $control > 0) {
+                $saveCalc('PT RATIO', round($ptTest / $control, 2));
+            }
+        }
+        // ── END FORMULA CALCULATIONS ──────────────────────────
+
         // Determine overall status from sub-results
         $subStatuses = array_column($labDb->fetchAll("SELECT result_status FROM test_sub_results WHERE order_item_id=?", [$itemId]), 'result_status');
         if      (in_array('critical',  $subStatuses)) $overall = 'critical';
@@ -474,6 +566,8 @@ $pageTitle = labClean($order['order_no']);
                                                data-range="<?= labClean($nr ?? '') ?>"
                                                data-itemid="<?= $item['id'] ?>"
                                                data-paramid="<?= $sp['id'] ?>"
+                                               data-shortname="<?= labClean($sp['short_name']) ?>"
+                                               data-testcode="<?= labClean($item['code']) ?>"
                                                value="<?= labClean($rv) ?>"
                                                placeholder="—"
                                                autocomplete="off">
@@ -592,40 +686,143 @@ $pageTitle = labClean($order['order_no']);
 <?php
 $extraJs = <<<'JS'
 <script>
-// Live Normal/Abnormal badge update as user types in sub-parameter inputs
+// ── HELPER: update status badge ───────────────────────────────
+function updateBadge(itemId, paramId, val, range) {
+    const badge = document.querySelector('.live-status-' + itemId + '_' + paramId);
+    if (!badge) return;
+    if (val === '' || isNaN(parseFloat(val))) {
+        badge.className = 'badge-status status-pending live-status-' + itemId + '_' + paramId;
+        badge.textContent = 'Pending';
+        return;
+    }
+    const num = parseFloat(val);
+    let status = 'normal';
+    const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
+    if (dashM) status = (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
+    const ltM = range.match(/^<([\d.]+)$/);
+    if (ltM) status = num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
+    const gtM = range.match(/^>([\d.]+)$/);
+    if (gtM) status = num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
+    badge.className = 'badge-status status-' + status + ' live-status-' + itemId + '_' + paramId;
+    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// ── HELPER: get input value by shortname within same modal ────
+function getInputVal(itemId, shortName) {
+    const inp = document.querySelector(
+        '.sub-input[data-itemid="' + itemId + '"][data-shortname="' + shortName + '"]'
+    );
+    return inp ? parseFloat(inp.value) : NaN;
+}
+
+// ── HELPER: set a calculated field value ─────────────────────
+function setCalcField(itemId, shortName, value) {
+    const inp = document.querySelector(
+        '.sub-input[data-itemid="' + itemId + '"][data-shortname="' + shortName + '"]'
+    );
+    if (!inp) return;
+    if (!isNaN(value) && isFinite(value)) {
+        inp.value = Math.round(value * 100) / 100;
+        // Mark as auto-calculated
+        inp.style.background = '#f0fdf4';
+        inp.style.borderColor = '#16a34a';
+        inp.title = 'Auto-calculated';
+        // Update its status badge
+        updateBadge(itemId, inp.dataset.paramid, inp.value, inp.dataset.range);
+    }
+}
+
+// ── FORMULA RUNNER: runs all applicable formulas for a test ──
+function runFormulas(itemId, testCode) {
+    if (testCode === 'CBC') {
+        // HB% = Haemoglobin (HGB) × 7
+        const hgb = getInputVal(itemId, 'HGB');
+        if (!isNaN(hgb)) setCalcField(itemId, 'HB%', hgb * 7);
+    }
+
+    if (testCode === 'KFT') {
+        // BUN = Blood Urea (UREA) × 0.467
+        const urea = getInputVal(itemId, 'UREA');
+        if (!isNaN(urea)) setCalcField(itemId, 'BUN', urea * 0.467);
+    }
+
+    if (testCode === 'LFT') {
+        // Indirect Bilirubin = Total Bilirubin − Direct Bilirubin
+        const tbili = getInputVal(itemId, 'T.BILI');
+        const dbili = getInputVal(itemId, 'D.BILI');
+        if (!isNaN(tbili) && !isNaN(dbili)) setCalcField(itemId, 'I.BILI', tbili - dbili);
+
+        // Globulin = Total Protein − Albumin
+        const tprot = getInputVal(itemId, 'T.PROT');
+        const alb   = getInputVal(itemId, 'ALB');
+        if (!isNaN(tprot) && !isNaN(alb)) {
+            const glob = tprot - alb;
+            setCalcField(itemId, 'GLOB', glob);
+            // A:G Ratio = Albumin ÷ Globulin
+            if (glob > 0) setCalcField(itemId, 'A:G', alb / glob);
+        }
+    }
+
+    if (testCode === 'PTINR') {
+        // Prothrombin Ratio = PT Test ÷ Control Plasma
+        const ptTest  = getInputVal(itemId, 'PT TEST');
+        const control = getInputVal(itemId, 'CONTROL');
+        if (!isNaN(ptTest) && !isNaN(control) && control > 0) {
+            setCalcField(itemId, 'PT RATIO', ptTest / control);
+        }
+    }
+}
+
+// ── MARK CALCULATED FIELDS AS READ-ONLY WITH TOOLTIP ─────────
+const calcFields = {
+    'CBC':   ['HB%'],
+    'KFT':   ['BUN'],
+    'LFT':   ['I.BILI', 'GLOB', 'A:G'],
+    'PTINR': ['PT RATIO']
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Style auto-calc fields that already have values
+    Object.entries(calcFields).forEach(([testCode, fields]) => {
+        fields.forEach(shortName => {
+            document.querySelectorAll(
+                '.sub-input[data-testcode="' + testCode + '"][data-shortname="' + shortName + '"]'
+            ).forEach(inp => {
+                inp.style.background  = '#f0fdf4';
+                inp.style.borderColor = '#16a34a';
+                inp.title = 'Auto-calculated — do not edit manually';
+                inp.setAttribute('readonly', 'readonly');
+                inp.style.cursor = 'not-allowed';
+                inp.style.opacity = '0.85';
+            });
+        });
+    });
+
+    // Run formulas on modal open to show current calculated values
+    document.querySelectorAll('[id^="modal_"]').forEach(function(modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            const anyInput = modal.querySelector('.sub-input');
+            if (!anyInput) return;
+            const itemId   = anyInput.dataset.itemid;
+            const testCode = anyInput.dataset.testcode;
+            runFormulas(itemId, testCode);
+        });
+    });
+});
+
+// ── MAIN: fire on every input change ─────────────────────────
 document.querySelectorAll('.sub-input').forEach(function(input) {
     input.addEventListener('input', function() {
         const itemId   = this.dataset.itemid;
         const paramId  = this.dataset.paramid;
         const range    = this.dataset.range || '';
-        const val      = this.value.trim();
-        const badgeSel = '.live-status-' + itemId + '_' + paramId;
-        const badge    = document.querySelector(badgeSel);
-        if (!badge) return;
+        const testCode = this.dataset.testcode;
 
-        if (val === '') {
-            badge.className = 'badge-status status-pending live-status-' + itemId + '_' + paramId;
-            badge.textContent = 'Pending';
-            return;
-        }
+        // Update this field's status badge
+        updateBadge(itemId, paramId, this.value, range);
 
-        const num = parseFloat(val);
-        let status = 'normal';
-
-        // Range: "4000-11000"
-        const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
-        if (dashM) {
-            status = (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
-        }
-        // Range: "<200"
-        const ltM = range.match(/^<([\d.]+)$/);
-        if (ltM) status = num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
-        // Range: ">40"
-        const gtM = range.match(/^>([\d.]+)$/);
-        if (gtM) status = num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
-
-        badge.className = 'badge-status status-' + status + ' live-status-' + itemId + '_' + paramId;
-        badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        // Re-run all formulas for this test
+        runFormulas(itemId, testCode);
     });
 });
 </script>

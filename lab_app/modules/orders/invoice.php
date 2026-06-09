@@ -20,6 +20,7 @@ $labAddress = labGetSetting($labDb,'lab_address','');
 $labPhone   = labGetSetting($labDb,'lab_phone','');
 $labEmail   = labGetSetting($labDb,'lab_email','');
 $labGstin   = labGetSetting($labDb,'lab_gstin','');
+$labLogo    = labGetSetting($labDb,'lab_logo','');
 $footer     = labGetSetting($labDb,'report_footer','Results are for clinical guidance only. Consult your physician.');
 ?>
 <!DOCTYPE html>
@@ -33,6 +34,7 @@ $footer     = labGetSetting($labDb,'report_footer','Results are for clinical gui
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#f5f5f5;color:#1e293b}
 .wrap{max-width:780px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
 .head{background:linear-gradient(135deg,#50a7c2,#b7f8db);color:#1e293b;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
+.lab-logo{max-height:60px;max-width:190px;object-fit:contain;display:block;margin-bottom:6px}
 .lab-name{font-size:22px;font-weight:700}.lab-sub{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
 .lab-detail{font-size:12px;opacity:.75;margin-top:8px;line-height:1.7}
 .inv-badge{text-align:right}.inv-badge .lbl{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase}
@@ -69,8 +71,16 @@ tbody tr:last-child td{border-bottom:none}
 <div class="wrap">
     <div class="head">
         <div>
+            <?php if ($labLogo): ?>
+            <img src="<?= LAB_APP_URL . labClean($labLogo) ?>"
+                 alt="<?= labClean($labName) ?>"
+                 class="lab-logo">
+            <?php else: ?>
             <div class="lab-name">🔬 <?= labClean($labName) ?></div>
-            <div class="lab-sub">Clinical Diagnostic Laboratory</div>
+            <?php endif; ?>
+            <div class="lab-sub">
+                <?= $labLogo ? labClean($labName) : 'Clinical Diagnostic Laboratory' ?>
+            </div>
             <div class="lab-detail">
                 <?= labClean($labAddress) ?><br>
                 📞 <?= labClean($labPhone) ?> &nbsp;|&nbsp; ✉️ <?= labClean($labEmail) ?>

@@ -31,10 +31,18 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_doctor'])) {
     header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id); exit;
 }
 
-$commissions = $labDb->fetchAll("SELECT dc.*,o.order_no,p.name as patient_name FROM doctor_commissions dc JOIN orders o ON dc.order_id=o.id JOIN patients p ON o.patient_id=p.id WHERE dc.doctor_id=? ORDER BY dc.created_at DESC", [$id]);
-$pending = array_filter($commissions, fn($c)=>$c['status']==='pending');
-$pendingTotal = array_sum(array_column(array_values($pending),'commission_amount'));
-$paidTotal    = array_sum(array_column(array_filter($commissions,fn($c)=>$c['status']==='paid'),'commission_amount'));
+$commissions = $labDb->fetchAll("
+    SELECT dc.*, o.order_no, o.status as order_status, p.name as patient_name
+    FROM doctor_commissions dc
+    JOIN orders o ON dc.order_id = o.id
+    JOIN patients p ON o.patient_id = p.id
+    WHERE dc.doctor_id = ?
+    ORDER BY dc.created_at DESC
+", [$id]);
+// Only show commissions where BOTH the commission and its parent order are not cancelled
+$pending      = array_filter($commissions, fn($c) => $c['status'] === 'pending'   && $c['order_status'] !== 'cancelled');
+$pendingTotal = array_sum(array_column(array_values($pending), 'commission_amount'));
+$paidTotal    = array_sum(array_column(array_filter($commissions, fn($c) => $c['status'] === 'paid'), 'commission_amount'));
 $patients     = $labDb->fetchAll("SELECT p.*,COUNT(o.id) as orders FROM patients p LEFT JOIN orders o ON o.patient_id=p.id WHERE p.doctor_id=? AND p.is_active=1 GROUP BY p.id ORDER BY p.created_at DESC LIMIT 10",[$id]);
 $pageTitle    = labClean($doctor['name']);
 ?>
@@ -136,7 +144,10 @@ $pageTitle    = labClean($doctor['name']);
                             <td><?= labClean($c['patient_name']) ?></td>
                             <td><?= labMoney($c['order_amount']) ?></td>
                             <td><strong><?= labMoney($c['commission_amount']) ?></strong></td>
-                            <td><span class="badge-status status-<?= $c['status']==='paid'?'completed':($c['status']==='pending'?'pending':'cancelled') ?>"><?= ucfirst($c['status']) ?></span></td>
+                            <td><span class="badge-status status-<?= $c['status']==='paid'?'completed':($c['status']==='pending'?'pending':'cancelled') ?>"><?= ucfirst($c['status']) ?></span>
+                                <?php if ($c['order_status'] === 'cancelled'): ?>
+                                <span class="badge bg-danger-subtle text-danger ms-1" title="Parent order was cancelled">Order Cancelled</span>
+                                <?php endif; ?></td>
                             <td><?= $c['paid_at'] ? date('d M Y',strtotime($c['paid_at'])) : '—' ?></td>
                         </tr>
                         <?php endforeach; ?>

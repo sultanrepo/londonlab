@@ -1,3 +1,5 @@
+>pktriot.exe start
+
 Bugs:-
 
 0. Dashboard and Reports page the net profit and Profit Margin is not calculated properly.
@@ -7,6 +9,8 @@ The margin will be calculated based on the doctor Commissions amount.
 Suppose I have 2 doctors in my system and one doctor has 50% Commissions and 2nd has 40% of Commissions.
 The Net profit calculation should be based on the Commissions persentage amount of all doctors which I have to pay to the doctor.
 Example:- 1000 rupees test and the doctor Commissions is 50% then my Profit Margin will be 50% if the doctor Commissions is 50%, so My Net profit will be 500 rupees.
+
+Status:- Resolved
 
 1. The refer patient order is cancelled but in the doctor profile page, section Pending Commissions it is showing to be paid the cancelled order amount also. 
 
