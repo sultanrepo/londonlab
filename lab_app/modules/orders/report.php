@@ -81,7 +81,7 @@ if ($order['referred_by']) $strip['Ref. By'] = $order['referred_by'];
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖨️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0px; padding: 0px; }
 body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; }
 
 /* ── PRINT BAR (screen only) ── */
@@ -104,7 +104,7 @@ body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; 
 }
 
 /* ── HEADER ── */
-.head { background: linear-gradient(135deg, #ffffff, #f9f9f9); color: #000000; padding: 0; flex-shrink: 0; }
+.head { background: linear-gradient(135deg, #79b036, #173404); color: #fafafa; padding: 0; flex-shrink: 0; }
 .head-top { padding: 20px 32px; display: flex; justify-content: space-between; align-items: flex-start; }
 .lab-logo   { max-height: 60px; max-width: 190px; object-fit: contain; display: block; margin-bottom: 6px; }
 .lab-name   { font-size: 20px; font-weight: 700; }
@@ -191,80 +191,46 @@ table { width: 100%; border-collapse: collapse; }
 
 @media print {
     html, body { background: #fff; width: 210mm; }
-
-    .pbar { display: none !important; }
-
-    /* Each category = exactly one A4 sheet */
-    .cat-page {
-        width: 210mm;
-        min-height: 297mm;
-        max-width: 210mm;
-        margin: 0;
-        border-radius: 0;
-        box-shadow: none;
-        page-break-after: always;   /* legacy */
-        break-after: page;          /* modern */
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* Last page: no trailing blank page */
-    .cat-page:last-child {
-        page-break-after: auto;
-        break-after: auto;
-    }
-
-    /* Body grows to fill remaining space → footer pushed to bottom */
-    .cat-page .body { flex: 1; }
-
-    /* ── Compact print sizes so CBC 19 rows fits ── */
+ 
+    .pbar,
+    .no-print { display: none !important; height: 0 !important; overflow: hidden !important; position: absolute !important; }
     .head-top   { padding: 10px 20px; }
     .lab-logo   { max-height: 44px; }
-    .lab-name   { font-size: 15px; }
-    .lab-sub    { font-size: 9px; }
-    .lab-detail { font-size: 9px; margin-top: 3px; line-height: 1.5; }
-    .rep-badge .lbl { font-size: 9px; }
-    .rep-badge .val { font-size: 14px; }
-    .rep-badge .dt  { font-size: 9px; }
-    .rep-badge .pg  { font-size: 9px; }
-
+    .lab-name   { font-size: 21px; }
+    .lab-sub    { font-size: 13px; }
+    .lab-detail { font-size: 13px; margin-top: 3px; line-height: 1.5; }
+    .rep-badge .lbl { font-size: 13px; }
+    .rep-badge .val { font-size: 20px; }
+    .rep-badge .dt  { font-size: 13px; }
+    .rep-badge .pg  { font-size: 13px; }
     .pstrip   { padding: 6px 20px; gap: 16px; }
-    .ps-item .ps-lbl { font-size: 8px; }
-    .ps-item .ps-val { font-size: 10px; }
-
+    .ps-item .ps-lbl { font-size: 11px; }
+    .ps-item .ps-val { font-size: 14px; }
     .cat-banner       { padding: 5px 20px; }
-    .cat-banner-name  { font-size: 10px; }
-    .cat-banner-count { font-size: 9px; }
-
+    .cat-banner-name  { font-size: 14px; }
+    .cat-banner-count { font-size: 13px; }
     .body { padding: 10px 20px; }
-
     .test-block        { margin-bottom: 8px; border-radius: 4px; }
     .test-block-head   { padding: 5px 10px; }
-    .test-block-name   { font-size: 11px; }
-    .test-block-code   { font-size: 9px; padding: 1px 5px; }
-    .test-block-status { font-size: 9px; padding: 2px 7px; }
-
-    .sub-head th { font-size: 8px; padding: 5px 8px; }
-    .sub-body td { font-size: 9px; padding: 4px 8px; }
-
-    .simple-result       { padding: 6px 10px; gap: 20px; font-size: 10px; }
-    .simple-result .sr-label { font-size: 8px; }
-
+    .test-block-name   { font-size: 15px; }
+    .test-block-code   { font-size: 13px; padding: 1px 5px; }
+    .test-block-status { font-size: 13px; padding: 2px 7px; }
+    .sub-head th { font-size: 11px; padding: 5px 8px; }
+    .sub-body td { font-size: 13px; padding: 4px 8px; }
+    .simple-result       { padding: 6px 10px; gap: 20px; font-size: 14px; }
+    .simple-result .sr-label { font-size: 11px; }
     .legend   { padding: 6px 10px; margin-top: 8px; gap: 8px; }
-    .leg-item { font-size: 9px; }
-    .legend .test-block-status { font-size: 8px !important; padding: 1px 5px !important; }
-
+    .leg-item { font-size: 13px; }
+    .legend .test-block-status { font-size: 11px !important; padding: 1px 5px !important; }
     .rep-foot     { padding: 8px 20px 10px; }
     .sig          { margin-bottom: 2px; }
     .sig-spacer   { height: 24px; }
     .sig-img      { max-height: 28px; }
     .sig-line     { width: 110px; margin: 5px auto 3px; }
-    .sig small    { font-size: 8px; }
+    .sig small    { font-size: 11px; }
     .foot-divider { margin: 6px 0; }
-    .disc         { font-size: 9px; }
-    .gen-info     { font-size: 9px; }
-
-    /* Never break a test block mid-row */
+    .disc         { font-size: 13px; }
+    .gen-info     { font-size: 13px; }
     .test-block      { break-inside: avoid; }
     .test-block-head { break-after: avoid; }
 }
@@ -312,7 +278,7 @@ foreach ($itemsByCategory as $catName => $catItems):
                 <div class="pg">Page <?= $catIndex ?> of <?= $totalCategories ?></div>
             </div>
         </div>
-<hr>
+
         <!-- Patient Strip -->
         <div class="pstrip">
             <?php foreach ($strip as $lbl => $val): ?>

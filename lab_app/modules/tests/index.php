@@ -49,7 +49,18 @@ $categories = $labDb->fetchAll("SELECT * FROM test_categories WHERE is_active=1 
                         <td><small><?= labClean($t['unit']??'—') ?></small></td>
                         <td><small><?= $t['turnaround_hours'] ?>h</small></td>
                         <?php if (labIsAdmin()): ?>
-                        <td><button onclick="confirmDelete('<?= LAB_APP_URL ?>/modules/tests/index.php?lab=<?= $slug ?>&delete=<?= $t['id'] ?>','Remove test?')" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="<?= LAB_APP_URL ?>/modules/tests/edit.php?lab=<?= $slug ?>&id=<?= $t['id'] ?>"
+                                   class="btn btn-sm btn-outline-primary" title="Edit test">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button onclick="confirmDelete('<?= LAB_APP_URL ?>/modules/tests/index.php?lab=<?= $slug ?>&delete=<?= $t['id'] ?>','Remove test ' + '<?= labClean(addslashes($t['name'])) ?>' + '?')"
+                                        class="btn btn-sm btn-outline-danger" title="Delete test">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
                         <?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
