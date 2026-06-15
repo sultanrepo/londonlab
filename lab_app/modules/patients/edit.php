@@ -13,7 +13,7 @@ $errors  = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     labVerifyCsrf();
     $name          = trim($_POST['name']          ?? '');
-    $dob           = $_POST['dob']                ?? '';
+    $age           = (int)($_POST['age']          ?? 0);
     $gender        = $_POST['gender']             ?? 'Male';
     $blood_group   = $_POST['blood_group']        ?? 'Unknown';
     $phone         = trim($_POST['phone']         ?? '');
@@ -31,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($referral_type==='doctor' && !$doctor_id) $errors[] = 'Please select a doctor.';
 
     if (empty($errors)) {
-        $labDb->execute("UPDATE patients SET name=?,dob=?,gender=?,blood_group=?,phone=?,email=?,address=?,referral_type=?,doctor_id=?,referred_by=? WHERE id=?",
-            [$name,$dob?:null,$gender,$blood_group,$phone,$email,$address,$referral_type,$doctor_id,$referred_by,$id]);
+        $labDb->execute("UPDATE patients SET name=?,age=?,gender=?,blood_group=?,phone=?,email=?,address=?,referral_type=?,doctor_id=?,referred_by=? WHERE id=?",
+            [$name,$age?:null,$gender,$blood_group,$phone,$email,$address,$referral_type,$doctor_id,$referred_by,$id]);
         labSetFlash('success','Patient updated!');
         header('Location: '.LAB_APP_URL.'/modules/patients/view.php?lab='.$slug.'&id='.$id); exit;
     }
@@ -56,8 +56,8 @@ $selDoc = (int)($patient['doctor_id'] ?? 0);
             <div class="row g-3">
                 <div class="col-md-6"><label class="form-label">Full Name *</label>
                     <input type="text" name="name" class="form-control" required value="<?= labClean($patient['name']) ?>"></div>
-                <div class="col-md-3"><label class="form-label">Date of Birth</label>
-                    <input type="date" name="dob" class="form-control" value="<?= labClean($patient['dob']??'') ?>"></div>
+                <div class="col-md-3"><label class="form-label">Age (years)</label>
+                    <input type="number" name="age" class="form-control" required min="0" max="150" placeholder="e.g. 35" value="<?= (int)($patient['age'] ?? 0) ?: '' ?>"></div>
                 <div class="col-md-3"><label class="form-label">Gender</label>
                     <select name="gender" class="form-select">
                         <?php foreach (['Male','Female','Other'] as $g): ?>

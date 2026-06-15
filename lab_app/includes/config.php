@@ -2,6 +2,9 @@
 // ================================================================
 // Lab App Config — connects to the correct lab database
 // ================================================================
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/../../master/config.php';
 
 $labDb = getLabDb();

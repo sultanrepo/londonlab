@@ -9,7 +9,7 @@ $errors  = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     labVerifyCsrf();
     $name          = trim($_POST['name']          ?? '');
-    $dob           = $_POST['dob']                ?? '';
+    $age           = (int)($_POST['age']          ?? 0);
     $gender        = $_POST['gender']             ?? 'Male';
     $blood_group   = $_POST['blood_group']        ?? 'Unknown';
     $phone         = trim($_POST['phone']         ?? '');
@@ -29,9 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $pid = labGeneratePatientId($labDb);
         $labDb->execute("
-            INSERT INTO patients (patient_id,name,dob,gender,blood_group,phone,email,address,referral_type,doctor_id,referred_by)
+            INSERT INTO patients (patient_id,name,age,gender,blood_group,phone,email,address,referral_type,doctor_id,referred_by)
             VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        ", [$pid,$name,$dob?:null,$gender,$blood_group,$phone,$email,$address,$referral_type,$doctor_id,$referred_by]);
+        ", [$pid,$name,$age?:null,$gender,$blood_group,$phone,$email,$address,$referral_type,$doctor_id,$referred_by]);
         $newId = $labDb->lastInsertId();
         labSetFlash('success',"Patient $pid registered!");
         header('Location: '.LAB_APP_URL.'/modules/patients/view.php?lab='.$slug.'&id='.$newId); exit;
@@ -59,11 +59,11 @@ $selDoc = (int)($_POST['doctor_id'] ?? 0);
                     <label class="form-label">Full Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control" required value="<?= labClean($_POST['name'] ?? '') ?>">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Date of Birth</label>
-                    <input type="date" name="dob" class="form-control" value="<?= labClean($_POST['dob'] ?? '') ?>">
+                <div class="col-md-2">
+                    <label class="form-label">Age <span class="text-danger">*</span></label>
+                    <input type="number" name="age" class="form-control" required min="0" max="150" placeholder="e.g. 35" value="<?= (int)($_POST['age'] ?? 0) ?: '' ?>">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Gender</label>
                     <select name="gender" class="form-select">
                         <?php foreach (['Male','Female','Other'] as $g): ?>

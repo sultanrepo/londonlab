@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS patients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     patient_id VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(150) NOT NULL,
-    dob DATE,
+    age TINYINT UNSIGNED,
     gender ENUM('Male','Female','Other') DEFAULT 'Male',
     blood_group ENUM('A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown') DEFAULT 'Unknown',
     phone VARCHAR(20),

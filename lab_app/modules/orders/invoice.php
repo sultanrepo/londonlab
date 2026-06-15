@@ -7,7 +7,7 @@ labRequireLogin();
 
 $id    = (int)($_GET['id'] ?? 0);
 $slug  = $_GET['lab'] ?? '';
-$order = $labDb->fetch("SELECT o.*,p.name as patient_name,p.patient_id as pid,p.phone,p.gender,p.dob,p.address,p.blood_group,p.referred_by,u.name as by_name FROM orders o JOIN patients p ON o.patient_id=p.id LEFT JOIN users u ON o.created_by=u.id WHERE o.id=?",[$id]);
+$order = $labDb->fetch("SELECT o.*,p.name as patient_name,p.patient_id as pid,p.phone,p.gender,p.age,p.address,p.blood_group,p.referred_by,u.name as by_name FROM orders o JOIN patients p ON o.patient_id=p.id LEFT JOIN users u ON o.created_by=u.id WHERE o.id=?",[$id]);
 if (!$order) die('Order not found.');
 
 $items     = $labDb->fetchAll("SELECT oi.price,t.name as test_name,t.code FROM order_items oi JOIN tests t ON oi.test_id=t.id WHERE oi.order_id=?",[$id]);
@@ -34,7 +34,7 @@ $footer     = labGetSetting($labDb,'report_footer','Results are for clinical gui
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#f5f5f5;color:#1e293b}
 .wrap{max-width:780px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
-.head{background:linear-gradient(135deg,#50a7c2,#b7f8db);color:#1e293b;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
+.head{background: linear-gradient(135deg,#d5de4e,#d5de4e);color:#1e293b;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
 .lab-logo{max-height:60px;max-width:190px;object-fit:contain;display:block;margin-bottom:6px}
 .lab-name{font-size:22px;font-weight:700}.lab-sub{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
 .lab-detail{font-size:12px;opacity:.75;margin-top:8px;line-height:1.7}
@@ -61,7 +61,64 @@ tbody tr:last-child td{border-bottom:none}
 .pbar{display:flex;gap:10px;justify-content:center;padding:16px;background:#fff;max-width:780px;margin:0 auto}
 .pbar button,.pbar a{padding:10px 24px;border-radius:8px;font-size:14px;font-family:inherit;font-weight:600;cursor:pointer;text-decoration:none}
 .btn-print{background:#1a6b4a;color:#fff;border:none}.btn-back{background:#fff;color:#1a6b4a;border:1.5px solid #1a6b4a}
-@media print{.pbar{display:none!important}body{background:#fff}.wrap{box-shadow:none;margin:0;border-radius:0}}
+/* ══════════════════════════════════════════════════════
+   PRINT STYLES
+   ── A4: 210mm × 297mm, zero browser margins so the
+      browser's own date/URL/page header+footer vanish.
+   ── Each .cat-page fills exactly one A4 sheet.
+   ── flex-column layout pins footer to the bottom.
+   ── Compact font sizes so CBC (19 rows) fits with header.
+══════════════════════════════════════════════════════ */
+@page {
+    size: A4 portrait;
+    margin: 4mm 3mm;
+}
+
+@media print {
+    html, body { background: #fff; width: 210mm; }
+ 
+    .pbar,
+    .no-print { display: none !important; height: 0 !important; overflow: hidden !important; position: absolute !important; }
+    .head-top   { padding: 20px 10px 20px 20px; }
+    .lab-logo   { max-height: 44px; }
+    .lab-name   { font-size: 21px; }
+    .lab-sub    { font-size: 13px; }
+    .lab-detail { font-size: 13px; margin-top: 3px; line-height: 1.5; }
+    .rep-badge .lbl { font-size: 13px; }
+    .rep-badge .val { font-size: 20px; }
+    .rep-badge .dt  { font-size: 13px; }
+    .rep-badge .pg  { font-size: 13px; }
+    .pstrip   { padding: 6px 20px; gap: 16px; }
+    .ps-item .ps-lbl { font-size: 11px; }
+    .ps-item .ps-val { font-size: 14px; }
+    .cat-banner       { padding: 5px 20px; }
+    .cat-banner-name  { font-size: 14px; }
+    .cat-banner-count { font-size: 13px; }
+    .body { padding: 10px 20px; }
+    .test-block        { margin-bottom: 8px; border-radius: 4px; }
+    .test-block-head   { padding: 5px 10px; }
+    .test-block-name   { font-size: 15px; }
+    .test-block-code   { font-size: 13px; padding: 1px 5px; }
+    .test-block-status { font-size: 13px; padding: 2px 7px; }
+    .sub-head th { font-size: 11px; padding: 5px 8px; }
+    .sub-body td { font-size: 13px; padding: 4px 8px; }
+    .simple-result       { padding: 6px 10px; gap: 20px; font-size: 14px; }
+    .simple-result .sr-label { font-size: 11px; }
+    .legend   { padding: 6px 10px; margin-top: 8px; gap: 8px; }
+    .leg-item { font-size: 13px; }
+    .legend .test-block-status { font-size: 11px !important; padding: 1px 5px !important; }
+    .rep-foot     { padding: 8px 20px 10px; }
+    .sig          { margin-bottom: 2px; }
+    .sig-spacer   { height: 24px; }
+    .sig-img      { max-height: 28px; }
+    .sig-line     { width: 110px; margin: 5px auto 3px; }
+    .sig small    { font-size: 11px; }
+    .foot-divider { margin: 6px 0; }
+    .disc         { font-size: 13px; }
+    .gen-info     { font-size: 13px; }
+    .test-block      { break-inside: avoid; }
+    .test-block-head { break-after: avoid; }
+}   
 </style>
 </head>
 <body>
@@ -100,7 +157,7 @@ tbody tr:last-child td{border-bottom:none}
                 <div class="sec">Patient Information</div>
                 <?php
                 $pmeta=['Patient ID'=>$order['pid'],'Name'=>$order['patient_name'],'Gender'=>$order['gender'],'Blood Group'=>$order['blood_group'],'Phone'=>$order['phone']];
-                if ($order['dob']) $pmeta['Age']=floor((time()-strtotime($order['dob']))/31557600).' yrs';
+                if ($order['age']) $pmeta['Age'] = $order['age'] . ' yrs';
                 if ($order['referred_by']) $pmeta['Referred By']=$order['referred_by'];
                 foreach ($pmeta as $k=>$v): ?>
                 <div class="mr"><span class="mk"><?= $k ?></span><span class="mv"><?= labClean($v) ?></span></div>

@@ -43,7 +43,7 @@ $pageTitle = labClean($patient['name']);
                 <?php
                 $info = [
                     'Gender'     => $patient['gender'],
-                    'DOB'        => $patient['dob'] ? date('d M Y',strtotime($patient['dob'])) : '—',
+                    'Age'        => $patient['age'] ? $patient['age'] . ' yrs' : '—',
                     'Phone'      => $patient['phone'],
                     'Email'      => $patient['email'] ?: '—',
                     'Referral'   => ucfirst($patient['referral_type'] ?? 'self'),

@@ -6,7 +6,7 @@ labRequireLogin();
 $id    = (int)($_GET['id'] ?? 0);
 $order = $labDb->fetch("
     SELECT o.*, p.name as patient_name, p.patient_id as pid,
-           p.phone, p.gender, p.dob, p.address, p.blood_group,
+           p.phone, p.gender, p.age, p.address, p.blood_group,
            p.referred_by, u.name as by_name
     FROM orders o
     JOIN patients p ON o.patient_id = p.id
@@ -58,7 +58,7 @@ $labLogo    = labGetSetting($labDb, 'lab_logo',      '');
 $labSig     = labGetSetting($labDb, 'lab_signature', '');
 $footer     = labGetSetting($labDb, 'report_footer', 'Results are for clinical guidance only. Consult your physician.');
 
-$age = $order['dob'] ? floor((time() - strtotime($order['dob'])) / 31557600) : null;
+$age = $order['age'] ? $order['age'] : null;
 
 $totalCategories = count($itemsByCategory);
 
@@ -98,13 +98,13 @@ body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; 
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,.1);
-    /* Flex column so footer is always pushed to bottom */
     display: flex;
     flex-direction: column;
+    min-height: 297mm;
 }
 
 /* ── HEADER ── */
-.head { background: linear-gradient(135deg, #79b036, #173404); color: #fafafa; padding: 0; flex-shrink: 0; }
+.head { background: linear-gradient(135deg, #d5de4e, #d5de4e); color: #000000; padding: 0; flex-shrink: 0; }
 .head-top { padding: 20px 32px; display: flex; justify-content: space-between; align-items: flex-start; }
 .lab-logo   { max-height: 60px; max-width: 190px; object-fit: contain; display: block; margin-bottom: 6px; }
 .lab-name   { font-size: 20px; font-weight: 700; }
@@ -117,7 +117,7 @@ body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; 
 .rep-badge .pg  { font-size: 11px; opacity: .55; margin-top: 3px; }
 
 /* ── PATIENT STRIP ── */
-.pstrip { background: rgba(255,255,255,.12); padding: 10px 32px; display: flex; gap: 24px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.15); }
+.pstrip { background: #d4d3d3; padding: 10px 32px; display: flex; gap: 24px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.15); }
 .ps-item .ps-lbl { font-size: 10px; opacity: .55; letter-spacing: .5px; text-transform: uppercase; }
 .ps-item .ps-val { font-size: 13px; font-weight: 600; margin-top: 1px; }
 
@@ -183,17 +183,36 @@ table { width: 100%; border-collapse: collapse; }
 ══════════════════════════════════════════════════════ */
 @page {
     size: A4 portrait;
-    /* Zero margin removes the browser's printed
-       date, URL, and page-number lines entirely.
-       We supply our own padding inside .cat-page. */
-    margin: 0;
+    margin: 4mm 3mm;
 }
 
 @media print {
-    html, body { background: #fff; width: 210mm; }
- 
+    html, body { background: #fff; width: 210mm; margin: 0; padding: 0; }
+
     .pbar,
-    .no-print { display: none !important; height: 0 !important; overflow: hidden !important; position: absolute !important; }
+    .no-print { display: none !important; }
+
+    .cat-page {
+        width: 210mm;
+        height: 297mm;
+        min-height: unset;
+        max-width: unset;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cat-page:last-child {
+        page-break-after: avoid;
+        break-after: avoid;
+    }
+
     .head-top   { padding: 10px 20px; }
     .lab-logo   { max-height: 44px; }
     .lab-name   { font-size: 21px; }
@@ -209,9 +228,9 @@ table { width: 100%; border-collapse: collapse; }
     .cat-banner       { padding: 5px 20px; }
     .cat-banner-name  { font-size: 14px; }
     .cat-banner-count { font-size: 13px; }
-    .body { padding: 10px 20px; }
-    .test-block        { margin-bottom: 8px; border-radius: 4px; }
-    .test-block-head   { padding: 5px 10px; }
+    .body { padding: 10px 20px; flex: 1; overflow: hidden; }
+    .test-block        { margin-bottom: 8px; border-radius: 4px; break-inside: avoid; }
+    .test-block-head   { padding: 5px 10px; break-after: avoid; }
     .test-block-name   { font-size: 15px; }
     .test-block-code   { font-size: 13px; padding: 1px 5px; }
     .test-block-status { font-size: 13px; padding: 2px 7px; }
@@ -222,7 +241,7 @@ table { width: 100%; border-collapse: collapse; }
     .legend   { padding: 6px 10px; margin-top: 8px; gap: 8px; }
     .leg-item { font-size: 13px; }
     .legend .test-block-status { font-size: 11px !important; padding: 1px 5px !important; }
-    .rep-foot     { padding: 8px 20px 10px; }
+    .rep-foot     { padding: 8px 20px 10px; margin-top: auto; }
     .sig          { margin-bottom: 2px; }
     .sig-spacer   { height: 24px; }
     .sig-img      { max-height: 28px; }
@@ -231,8 +250,6 @@ table { width: 100%; border-collapse: collapse; }
     .foot-divider { margin: 6px 0; }
     .disc         { font-size: 13px; }
     .gen-info     { font-size: 13px; }
-    .test-block      { break-inside: avoid; }
-    .test-block-head { break-after: avoid; }
 }
 </style>
 </head>
