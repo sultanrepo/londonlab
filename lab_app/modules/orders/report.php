@@ -296,7 +296,7 @@ foreach ($itemsByCategory as $catName => $catItems):
             </div>
         </div>
 
-        <!-- Patient Strip -->
+        <!--  Patient Strip  -->
         <div class="pstrip">
             <?php foreach ($strip as $lbl => $val): ?>
             <div class="ps-item">
