@@ -1,7 +1,7 @@
 Features:-
 
 3:- WhatsApp automatically report send.
-
+Done
 4:- Upload the Lab logo and that will be shown in the labs Invoice and Reports.
 Done
 5:- On the report the each category tests will come in one page if the test catagories are 4 and each has 1, 2,3 so on. Each catagories should come in individual pages

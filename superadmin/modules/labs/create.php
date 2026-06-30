@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($result['success']) {
             saSetFlash('success', "Lab '{$name}' provisioned! Lab ID: <strong>{$result['slug']}</strong> — Share this ID with the lab owner for login.");
+            header('Location: ' . SUPERADMIN_URL . '/modules/labs/view.php?id=' . $result['lab_id']);
             exit;
         } else {
             $errors[] = 'Provisioning failed: ' . $result['message'];

@@ -57,32 +57,6 @@ CREATE TABLE IF NOT EXISTS patients (
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL
 );
 
--- ---- TEST SUB-PARAMETERS (for panel tests like CBC, LFT, KFT, Lipid, Thyroid) ----
-CREATE TABLE IF NOT EXISTS test_sub_parameters (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    test_id INT NOT NULL,
-    parameter_name VARCHAR(150) NOT NULL,
-    short_name VARCHAR(50),
-    normal_range_male VARCHAR(100),
-    normal_range_female VARCHAR(100),
-    unit VARCHAR(50),
-    sort_order INT DEFAULT 0,
-    is_active TINYINT(1) DEFAULT 1,
-    FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
-);
-
--- ---- TEST SUB-RESULTS (one row per sub-parameter per order item) ----
-CREATE TABLE IF NOT EXISTS test_sub_results (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_item_id INT NOT NULL,
-    sub_parameter_id INT NOT NULL,
-    result_value VARCHAR(255),
-    result_status ENUM('normal','abnormal','critical','pending') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (sub_parameter_id) REFERENCES test_sub_parameters(id) ON DELETE CASCADE
-);
-
 -- ---- TEST CATEGORIES ----
 CREATE TABLE IF NOT EXISTS test_categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -140,6 +114,34 @@ CREATE TABLE IF NOT EXISTS order_items (
     completed_at DATETIME,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (test_id) REFERENCES tests(id)
+);
+
+-- ---- TEST SUB-PARAMETERS (for panel tests like CBC, LFT, KFT, Lipid, Thyroid) ----
+-- Moved AFTER tests table (FK dependency: test_id -> tests.id)
+CREATE TABLE IF NOT EXISTS test_sub_parameters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    test_id INT NOT NULL,
+    parameter_name VARCHAR(150) NOT NULL,
+    short_name VARCHAR(50),
+    normal_range_male VARCHAR(100),
+    normal_range_female VARCHAR(100),
+    unit VARCHAR(50),
+    sort_order INT DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
+);
+
+-- ---- TEST SUB-RESULTS (one row per sub-parameter per order item) ----
+-- Moved AFTER order_items AND test_sub_parameters (FK dependencies on both)
+CREATE TABLE IF NOT EXISTS test_sub_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_item_id INT NOT NULL,
+    sub_parameter_id INT NOT NULL,
+    result_value VARCHAR(255),
+    result_status ENUM('normal','abnormal','critical','pending') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (sub_parameter_id) REFERENCES test_sub_parameters(id) ON DELETE CASCADE
 );
 
 -- ---- PAYMENTS ----
