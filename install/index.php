@@ -27,9 +27,13 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
+            set_time_limit(300);
+
             // Connect without DB name first
             $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                PDO::ATTR_ERRMODE                => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT                => 10,
+                PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
             ]);
 
             // Create master database
@@ -43,11 +47,13 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // Remove CREATE DATABASE statement
             $masterSql = preg_replace('/^CREATE DATABASE.*?;/mi', '', $masterSql);
 
-            // Split and execute statements
-            $statements = array_filter(array_map('trim', explode(';', $masterSql)));
-            foreach ($statements as $stmt) {
-                if (!empty($stmt)) $pdo->exec($stmt);
-            }
+            // Execute as one multi-statement batch (avoids per-statement
+            // cursor hang seen with some PDO/MySQL driver combos)
+            $stmtHandle = $pdo->prepare($masterSql);
+            $stmtHandle->execute();
+            do {
+                // drain all result sets so the connection isn't left busy
+            } while ($stmtHandle->nextRowset());
 
             // Create super admin (replace default)
             $hashedPwd = password_hash($saPwd, PASSWORD_DEFAULT);

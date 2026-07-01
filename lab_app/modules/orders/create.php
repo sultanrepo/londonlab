@@ -127,6 +127,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="card">
             <div class="card-header"><i class="bi bi-droplet-fill"></i> Select Tests</div>
             <div class="card-body">
+                <div class="mb-4 position-relative">
+                    <i class="bi bi-search position-absolute" style="left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;"></i>
+                    <input type="text" id="testSearchInput" class="form-control" placeholder="Search tests by name or code..." style="padding-left:38px;" autocomplete="off">
+                </div>
+                <p id="noTestResults" class="text-muted text-center small py-3" style="display:none;">No tests match your search.</p>
                 <?php foreach ($categories as $cat):
                     $catTests = [];
                     foreach (explode(';;', $cat['tests']) as $ts) {
@@ -134,13 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $catTests[] = compact('tid','tname','tprice','tcode');
                     }
                 ?>
-                <div class="mb-4">
-                    <h6 class="fw-bold mb-3 text-muted text-uppercase" style="font-size:12px;letter-spacing:.5px;">
+                <div class="mb-4 test-category-block">
+                    <h6 class="fw-bold mb-3 text-muted text-uppercase test-category-title" style="font-size:12px;letter-spacing:.5px;">
                         <?= labClean($cat['name']) ?>
                     </h6>
                     <div class="row g-2">
                         <?php foreach ($catTests as $t): ?>
-                        <div class="col-md-6">
+                        <div class="col-md-6 test-item-col" data-search="<?= strtolower(labClean($t['tname'].' '.$t['tcode'])) ?>">
                             <label class="d-flex align-items-center gap-3 p-3 border rounded-2"
                                    data-price="<?= $t['tprice'] ?>"
                                    style="cursor:pointer;transition:all .15s;">
@@ -301,6 +306,43 @@ discEl.addEventListener('input', update);       // Lab Discount
 docDiscEl.addEventListener('input', update);    // Doctor's Discount
 
 payEl.addEventListener('input', () => { payEl.dataset.modified = '1'; });
+
+// ── TEST SEARCH FILTER ──
+const testSearchInput = document.getElementById('testSearchInput');
+const testItemCols    = document.querySelectorAll('.test-item-col');
+const catBlocks        = document.querySelectorAll('.test-category-block');
+const noResultsEl      = document.getElementById('noTestResults');
+
+function filterTests() {
+    const q = testSearchInput.value.trim().toLowerCase();
+    let anyVisible = false;
+
+    catBlocks.forEach(block => {
+        let catHasVisible = false;
+        block.querySelectorAll('.test-item-col').forEach(col => {
+            const match = !q || col.dataset.search.includes(q);
+            col.style.display = match ? '' : 'none';
+            if (match) { catHasVisible = true; anyVisible = true; }
+        });
+        block.style.display = catHasVisible ? '' : 'none';
+    });
+
+    noResultsEl.style.display = anyVisible ? 'none' : '';
+}
+
+function resetTestSearch() {
+    testSearchInput.value = '';
+    filterTests();
+    testSearchInput.focus();
+}
+
+testSearchInput.addEventListener('input', filterTests);
+
+// When a test is checked, clear the search and show all tests again,
+// then return focus to the search box for the next lookup.
+checks.forEach(c => c.addEventListener('change', () => {
+    if (c.checked) resetTestSearch();
+}));
 
 // ── SHOW/HIDE DOCTOR DISCOUNT BASED ON PATIENT REFERRAL ──
 const patientSelect       = document.querySelector('[name="patient_id"]');

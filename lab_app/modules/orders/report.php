@@ -433,12 +433,7 @@ foreach ($itemsByCategory as $catName => $catItems):
     <div class="rep-foot">
 
         <!-- Signatures -->
-        <div class="sig">
-            <div class="sig-box">
-                <div class="sig-spacer"></div>
-                <div class="sig-line"></div>
-                <small>Lab Technician</small>
-            </div>
+        <div class="sig" style="justify-content:flex-end;">
             <div class="sig-box">
                 <?php if ($labSig): ?>
                 <img src="<?= LAB_APP_URL . labClean($labSig) ?>"
@@ -448,7 +443,7 @@ foreach ($itemsByCategory as $catName => $catItems):
                 <div class="sig-spacer"></div>
                 <?php endif; ?>
                 <div class="sig-line"></div>
-                <small>Pathologist / Lab Director</small>
+                <small>Authorized Signatory</small>
             </div>
         </div>
 
