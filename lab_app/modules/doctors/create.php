@@ -1,4 +1,5 @@
 <?php
+// Sultan Ashraf
 $pageTitle = 'Add Doctor';
 require_once __DIR__ . '/../../includes/header.php';
 labRequireAccess('doctors');
