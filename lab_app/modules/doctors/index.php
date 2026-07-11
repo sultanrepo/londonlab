@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Doctors';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('doctors');
 
 if (isset($_GET['toggle'])) {
     $did  = (int)$_GET['toggle'];

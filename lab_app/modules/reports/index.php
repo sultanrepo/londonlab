@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Reports & Analytics';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('reports');
 
 $from = $_GET['from'] ?? date('Y-m-01');
 $to   = $_GET['to']   ?? date('Y-m-d');

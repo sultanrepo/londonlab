@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'New Order';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('orders');
 if (!labCanEdit()) { labSetFlash('error','Access denied.'); header('Location: '.LAB_APP_URL.'/modules/orders/index.php?lab='.$slug); exit; }
 
 $prePatient = null;

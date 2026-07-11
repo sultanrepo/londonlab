@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Order Details';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('orders');
 
 $id    = (int)($_GET['id'] ?? 0);
 $order = $labDb->fetch("

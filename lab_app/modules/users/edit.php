@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Edit User';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('users');
 if (!labIsAdmin()) { labSetFlash('error','Admins only.'); header('Location: '.LAB_APP_URL.'/index.php?lab='.$slug); exit; }
 
 $id     = (int)($_GET['id'] ?? 0);

@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Edit Test';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('tests');
 if (!labIsAdmin()) {
     labSetFlash('error', 'Admins only.');
     header('Location: ' . LAB_APP_URL . '/modules/tests/index.php?lab=' . $slug); exit;

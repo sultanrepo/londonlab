@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Orders / Tests';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('orders');
 
 $statusFilter = $_GET['status'] ?? '';
 $sql = "SELECT o.*, p.name as patient_name, p.patient_id as pid,

@@ -5,23 +5,26 @@ require_once __DIR__ . '/includes/header.php';
 // KPI stats
 $totalPatients  = $labDb->fetch("SELECT COUNT(*) as c FROM patients WHERE is_active=1")['c'];
 $totalOrders    = $labDb->fetch("SELECT COUNT(*) as c FROM orders")['c'];
-$totalRevenue     = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE status='completed'")['s'];
-$totalExpenses    = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM expenses")['s'];
-$totalCommissions = (float)$labDb->fetch("SELECT COALESCE(SUM(commission_amount),0) as s FROM doctor_commissions WHERE status IN ('pending','paid')")['s'];
-$netProfit        = $totalRevenue - $totalExpenses - $totalCommissions;
+$totalRevenue = $totalExpenses = $totalCommissions = $netProfit = 0.0;
+if (labCanAccess('reports') || labIsAdmin()) {
+    $totalRevenue     = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE status='completed'")['s'];
+    $totalExpenses    = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM expenses")['s'];
+    $totalCommissions = (float)$labDb->fetch("SELECT COALESCE(SUM(commission_amount),0) as s FROM doctor_commissions WHERE status IN ('pending','paid')")['s'];
+    $netProfit        = $totalRevenue - $totalExpenses - $totalCommissions;
+}
 $pendingOrders  = $labDb->fetch("SELECT COUNT(*) as c FROM orders WHERE status IN ('pending','sample_collected','processing')")['c'];
 
 $todayPatients  = $labDb->fetch("SELECT COUNT(*) as c FROM patients WHERE DATE(created_at)=CURDATE()")['c'];
 $todayOrders    = $labDb->fetch("SELECT COUNT(*) as c FROM orders WHERE DATE(order_date)=CURDATE()")['c'];
-$todayRevenue   = (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE DATE(paid_at)=CURDATE() AND status='completed'")['s'];
+$todayRevenue   = (labCanAccess('reports') || labIsAdmin()) ? (float)$labDb->fetch("SELECT COALESCE(SUM(amount),0) as s FROM payments WHERE DATE(paid_at)=CURDATE() AND status='completed'")['s'] : 0.0;
 
 // Monthly revenue chart
-$monthlyRevenue = $labDb->fetchAll("
+$monthlyRevenue = (labCanAccess('reports') || labIsAdmin()) ? $labDb->fetchAll("
     SELECT DATE_FORMAT(paid_at,'%b %Y') as month, DATE_FORMAT(paid_at,'%Y-%m') as ym,
            SUM(amount) as revenue
     FROM payments WHERE status='completed' AND paid_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
     GROUP BY ym ORDER BY ym ASC
-");
+") : [];
 
 // Recent orders
 $recentOrders = $labDb->fetchAll("
@@ -62,6 +65,7 @@ $catDist = $labDb->fetchAll("
             </div>
         </div>
     </div>
+    <?php if (labCanAccess('reports') || labIsAdmin()): ?>
     <div class="col-sm-6 col-xl-3">
         <div class="stat-card">
             <div class="stat-icon green"><i class="bi bi-currency-rupee"></i></div>
@@ -82,6 +86,7 @@ $catDist = $labDb->fetchAll("
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php if ($pendingOrders > 0): ?>
@@ -95,7 +100,8 @@ $catDist = $labDb->fetchAll("
 </div>
 <?php endif; ?>
 
-<!-- Charts -->
+<!-- Charts (finance roles only) -->
+<?php if (labCanAccess('reports') || labIsAdmin()): ?>
 <div class="row g-4 mb-4">
     <div class="col-lg-8">
         <div class="card h-100">
@@ -112,23 +118,32 @@ $catDist = $labDb->fetchAll("
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Quick Actions -->
 <div class="card mb-4">
     <div class="card-header"><i class="bi bi-lightning-fill text-warning"></i> Quick Actions</div>
     <div class="card-body d-flex flex-wrap gap-3">
+        <?php if (labCanAccess('patients')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/patients/create.php?lab=<?= $slug ?>" class="btn btn-primary">
             <i class="bi bi-person-plus-fill me-2"></i>New Patient
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('orders')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/orders/create.php?lab=<?= $slug ?>" class="btn btn-outline-primary">
             <i class="bi bi-plus-circle me-2"></i>New Order
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('expenses')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/expenses/create.php?lab=<?= $slug ?>" class="btn btn-outline-secondary">
             <i class="bi bi-receipt me-2"></i>Add Expense
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('reports')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/reports/index.php?lab=<?= $slug ?>" class="btn btn-outline-info">
             <i class="bi bi-file-earmark-bar-graph me-2"></i>Reports
         </a>
+        <?php endif; ?>
     </div>
 </div>
 

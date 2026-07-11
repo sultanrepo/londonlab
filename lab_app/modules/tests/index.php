@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Test Catalog';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('tests');
 
 // Add test
 if ($_SERVER['REQUEST_METHOD']==='POST' && labIsAdmin()) {

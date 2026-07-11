@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'New Patient';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('patients');
 if (!labCanEdit()) { labSetFlash('error','Access denied.'); header('Location: '.LAB_APP_URL.'/modules/patients/index.php?lab='.$slug); exit; }
 
 $doctors = $labDb->fetchAll("SELECT id,name,specialty,clinic_name FROM doctors WHERE is_active=1 ORDER BY name");

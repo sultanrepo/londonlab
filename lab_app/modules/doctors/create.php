@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Add Doctor';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('doctors');
 if (!labCanEdit()) { labSetFlash('error','Access denied.'); header('Location: '.LAB_APP_URL.'/modules/doctors/index.php?lab='.$slug); exit; }
 
 $errors = [];

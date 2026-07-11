@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Settings';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('settings');
 if (!labIsAdmin()) { labSetFlash('error','Admins only.'); header('Location: '.LAB_APP_URL.'/index.php?lab='.$slug); exit; }
 
 $errors  = [];

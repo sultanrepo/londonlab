@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Patients';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('patients');
 
 // Handle deactivate
 if (isset($_GET['delete']) && labIsAdmin()) {

@@ -155,3 +155,45 @@ function labGetSetting(LabDB $db, string $key, string $default=''): string {
     $row = $db->fetch("SELECT setting_value FROM settings WHERE setting_key=?", [$key]);
     return $row ? $row['setting_value'] : $default;
 }
+
+// ================================================================
+// ROLE-BASED ACCESS CONTROL
+// ================================================================
+/**
+ * Module access matrix.
+ * Admin:        full access to everything.
+ * Receptionist: Operations (patients, doctors, orders, tests) + Expenses only.
+ * Technician:   Operations (patients, doctors, orders, tests) only.
+ * Accountant:   Finance (expenses + reports) only.
+ *
+ * @param string $module  One of: dashboard, patients, doctors, orders, tests,
+ *                        expenses, reports, users, settings
+ */
+function labCanAccess(string $module): bool {
+    $role = $_SESSION['lab_user_role'] ?? '';
+    if ($role === 'admin') return true;
+
+    return match($module) {
+        'dashboard' => true,                                   // all roles see dashboard
+        'patients'  => in_array($role, ['receptionist','technician']),
+        'doctors'   => in_array($role, ['receptionist','technician']),
+        'orders'    => in_array($role, ['receptionist','technician']),
+        'tests'     => in_array($role, ['receptionist','technician']),
+        'expenses'  => in_array($role, ['receptionist','accountant']),
+        'reports'   => $role === 'accountant',
+        'users'     => false,
+        'settings'  => false,
+        default     => false,
+    };
+}
+
+/**
+ * Abort with 403 if the current user cannot access the given module.
+ */
+function labRequireAccess(string $module): void {
+    if (!labCanAccess($module)) {
+        labSetFlash('error', 'You do not have permission to access that page.');
+        header('Location: ' . LAB_APP_URL . '/index.php?lab=' . ($_SESSION['lab_slug'] ?? ''));
+        exit;
+    }
+}

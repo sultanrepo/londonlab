@@ -126,31 +126,51 @@ body{font-family:'DM Sans',sans-serif;background:var(--lc-bg);color:var(--lc-tex
         <a href="<?= LAB_APP_URL ?>/index.php?lab=<?= $slug ?>" class="sidebar-link <?= $currentPage==='index'?'active':'' ?>">
             <i class="bi bi-grid-1x2-fill"></i> Dashboard
         </a>
+        <?php if (labCanAccess('patients') || labCanAccess('orders')): ?>
         <div class="nav-label">Operations</div>
+        <?php endif; ?>
+        <?php if (labCanAccess('patients')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/patients/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'patient')!==false?'active':'' ?>">
             <i class="bi bi-people-fill"></i> Patients
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('doctors')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/doctors/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'doctor')!==false?'active':'' ?>">
             <i class="bi bi-person-vcard-fill"></i> Doctors
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('orders')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/orders/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'order')!==false?'active':'' ?>">
             <i class="bi bi-clipboard2-pulse-fill"></i> Orders / Tests
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('tests')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/tests/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'test')!==false?'active':'' ?>">
             <i class="bi bi-droplet-half"></i> Test Catalog
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('expenses') || labCanAccess('reports')): ?>
         <div class="nav-label">Finance</div>
+        <?php endif; ?>
+        <?php if (labCanAccess('expenses')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/expenses/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'expense')!==false?'active':'' ?>">
             <i class="bi bi-cash-stack"></i> Expenses
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('reports')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/reports/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'report')!==false?'active':'' ?>">
             <i class="bi bi-bar-chart-fill"></i> Reports
         </a>
-        <?php if (labIsAdmin()): ?>
+        <?php endif; ?>
+        <?php if (labCanAccess('users') || labCanAccess('settings')): ?>
         <div class="nav-label">System</div>
+        <?php endif; ?>
+        <?php if (labCanAccess('users')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/users/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'user')!==false?'active':'' ?>">
             <i class="bi bi-person-gear"></i> Users
         </a>
+        <?php endif; ?>
+        <?php if (labCanAccess('settings')): ?>
         <a href="<?= LAB_APP_URL ?>/modules/settings/index.php?lab=<?= $slug ?>" class="sidebar-link <?= strpos($currentPage,'setting')!==false?'active':'' ?>">
             <i class="bi bi-gear-fill"></i> Settings
         </a>

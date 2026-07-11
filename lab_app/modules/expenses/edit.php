@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Edit Expense';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('expenses');
 
 $id      = (int)($_GET['id'] ?? 0);
 $expense = $labDb->fetch("SELECT * FROM expenses WHERE id=?", [$id]);

@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Doctor Profile';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('doctors');
 
 $id     = (int)($_GET['id'] ?? 0);
 $doctor = $labDb->fetch("SELECT * FROM doctors WHERE id=?", [$id]);

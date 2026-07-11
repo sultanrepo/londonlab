@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Patient Details';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('patients');
 
 $id      = (int)($_GET['id'] ?? 0);
 $patient = $labDb->fetch("SELECT p.*, d.name as doctor_name FROM patients p LEFT JOIN doctors d ON p.doctor_id=d.id WHERE p.id=?", [$id]);

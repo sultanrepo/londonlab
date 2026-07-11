@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Expenses';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('expenses');
 
 if (isset($_GET['delete']) && labIsAdmin()) {
     $labDb->execute("DELETE FROM expenses WHERE id=?", [(int)$_GET['delete']]);

@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Edit Patient';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('patients');
 if (!labCanEdit()) { labSetFlash('error','Access denied.'); header('Location: '.LAB_APP_URL.'/modules/patients/index.php?lab='.$slug); exit; }
 
 $id      = (int)($_GET['id'] ?? 0);

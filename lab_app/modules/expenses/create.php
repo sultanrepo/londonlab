@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Add Expense';
 require_once __DIR__ . '/../../includes/header.php';
+labRequireAccess('expenses');
 $cats    = ['reagents','equipment','salary','rent','utilities','maintenance','consumables','other'];
 $methods = ['cash','card','bank_transfer','cheque'];
 $errors  = [];
