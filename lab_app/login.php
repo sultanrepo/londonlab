@@ -109,14 +109,15 @@ body{font-family:'DM Sans',sans-serif;background:#f1f5f3;min-height:100vh;displa
                 <div class="input-wrap">
                     <i class="bi bi-envelope icon"></i>
                     <input type="email" name="email" required placeholder="you@lab.com"
-                           value="<?= labClean($_POST['email'] ?? '') ?>">
+                        value="<?= labClean($_POST['email'] ?? 'aftab@londonlab.in') ?>">
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
                 <div class="input-wrap">
                     <i class="bi bi-lock icon"></i>
-                    <input type="password" name="password" required placeholder="Enter your password">
+                    <input type="password" name="password" required placeholder="Enter your password"
+                        value="Aftab@786">
                 </div>
             </div>
             <button type="submit" class="btn-login">
