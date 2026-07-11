@@ -119,6 +119,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Reload both after possible uploads
 $logoUrl = labGetSetting($labDb, 'lab_logo',      '');
 $sigUrl  = labGetSetting($labDb, 'lab_signature', '');
+$wmUrl   = labGetSetting($labDb, 'lab_watermark', '');
+
+// ── WATERMARK UPLOAD ─────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_watermark') {
+    labVerifyCsrf();
+
+    if (isset($_POST['delete_watermark'])) {
+        $oldPath = ROOT_PATH . '/lab_app' . parse_url($wmUrl, PHP_URL_PATH);
+        if ($wmUrl && file_exists($oldPath)) @unlink($oldPath);
+        $labDb->execute("INSERT INTO settings (setting_key,setting_value) VALUES ('lab_watermark','') ON DUPLICATE KEY UPDATE setting_value=''");
+        labSetFlash('success', 'Watermark removed.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug); exit;
+    }
+
+    if (!empty($_FILES['lab_watermark']['tmp_name'])) {
+        $file     = $_FILES['lab_watermark'];
+        $allowed  = ['image/png','image/jpeg','image/jpg','image/webp','image/svg+xml'];
+        $maxBytes = 3 * 1024 * 1024; // 3 MB
+
+        if (!in_array($file['type'], $allowed)) {
+            $errors[] = 'Invalid type. PNG, JPG, SVG or WebP only.';
+        } elseif ($file['size'] > $maxBytes) {
+            $errors[] = 'File too large. Maximum 3 MB.';
+        } else {
+            $uploadDir = ROOT_PATH . '/lab_app/assets/watermarks/' . $slug . '/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            if ($wmUrl) {
+                $oldPath = ROOT_PATH . '/lab_app' . parse_url($wmUrl, PHP_URL_PATH);
+                if (file_exists($oldPath)) @unlink($oldPath);
+            }
+            $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $filename = 'watermark_' . time() . '.' . $ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+                $relUrl = '/assets/watermarks/' . $slug . '/' . $filename;
+                $labDb->execute("INSERT INTO settings (setting_key,setting_value) VALUES ('lab_watermark',?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)", [$relUrl]);
+                labSetFlash('success', 'Watermark uploaded successfully!');
+                header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug); exit;
+            } else {
+                $errors[] = 'Upload failed. Check folder permissions.';
+            }
+        }
+    } else {
+        $errors[] = 'Please select a file to upload.';
+    }
+}
+
+// Reload after possible watermark upload
+$wmUrl = labGetSetting($labDb, 'lab_watermark', '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_settings') {
     labVerifyCsrf();
@@ -334,6 +382,55 @@ $userCount  = $labDb->fetch("SELECT COUNT(*) as c FROM users WHERE is_active=1")
                     <input type="hidden" name="delete_signature" value="1">
                     <button type="submit" class="btn btn-outline-danger btn-sm w-100">
                         <i class="bi bi-trash me-2"></i>Remove Signature
+                    </button>
+                </form>
+                <?php endif; ?>
+
+            </div>
+        </div>
+
+        <!-- Watermark Upload -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-water me-2 text-secondary"></i> Report Watermark</div>
+            <div class="card-body">
+
+                <?php if ($wmUrl): ?>
+                <div class="text-center mb-3 p-3 rounded-2" style="background:#f8faf9;border:1px dashed #d1d5db;">
+                    <img src="<?= LAB_APP_URL . labClean($wmUrl) ?>"
+                         alt="Watermark"
+                         style="max-height:70px;max-width:100%;object-fit:contain;opacity:.5;">
+                    <div class="mt-2" style="font-size:12px;color:#64748b;">Current watermark</div>
+                </div>
+                <?php else: ?>
+                <div class="text-center mb-3 p-4 rounded-2" style="background:#f8faf9;border:2px dashed #d1d5db;color:#94a3b8;">
+                    <i class="bi bi-water" style="font-size:28px;"></i>
+                    <div class="mt-2" style="font-size:13px;">No watermark uploaded</div>
+                    <div style="font-size:11px;margin-top:4px;">Shows faintly behind report &amp; invoice content</div>
+                </div>
+                <?php endif; ?>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                    <input type="hidden" name="action"     value="upload_watermark">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size:13px;">Upload watermark image</label>
+                        <input type="file" name="lab_watermark" class="form-control form-control-sm"
+                               accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml">
+                        <div class="form-text">PNG with transparency works best · Max 3 MB</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-upload me-2"></i>Upload Watermark
+                    </button>
+                </form>
+
+                <?php if ($wmUrl): ?>
+                <form method="POST" class="mt-2"
+                      onsubmit="return confirm('Remove the current watermark?')">
+                    <input type="hidden" name="csrf_token"        value="<?= labCsrfToken() ?>">
+                    <input type="hidden" name="action"            value="upload_watermark">
+                    <input type="hidden" name="delete_watermark"  value="1">
+                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash me-2"></i>Remove Watermark
                     </button>
                 </form>
                 <?php endif; ?>

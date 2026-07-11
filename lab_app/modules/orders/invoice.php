@@ -22,6 +22,7 @@ $labEmail   = labGetSetting($labDb,'lab_email','');
 $labGstin   = labGetSetting($labDb,'lab_gstin','');
 $labLogo    = labGetSetting($labDb,'lab_logo','');
 $labSig     = labGetSetting($labDb,'lab_signature','');
+$labWm      = labGetSetting($labDb,'lab_watermark','');
 $footer     = labGetSetting($labDb,'report_footer','Results are for clinical guidance only. Consult your physician.');
 ?>
 <!DOCTYPE html>
@@ -33,7 +34,8 @@ $footer     = labGetSetting($labDb,'report_footer','Results are for clinical gui
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#f5f5f5;color:#1e293b}
-.wrap{max-width:780px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.wrap{max-width:780px;margin:30px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);position:relative}
+.watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) ;width:70%;max-width:420px;opacity:.07;pointer-events:none;z-index:0;user-select:none}
 .head{background: linear-gradient(135deg,#d5de4e,#d5de4e);color:#1e293b;padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start}
 .lab-logo{max-height:60px;max-width:190px;object-fit:contain;display:block;margin-bottom:6px}
 .lab-name{font-size:22px;font-weight:700}.lab-sub{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
@@ -79,6 +81,7 @@ tbody tr:last-child td{border-bottom:none}
  
     .pbar,
     .no-print { display: none !important; height: 0 !important; overflow: hidden !important; position: absolute !important; }
+    .watermark { opacity: .06; }
     .head-top   { padding: 20px 10px 20px 20px; }
     .lab-logo   { max-height: 44px; }
     .lab-name   { font-size: 21px; }
@@ -127,6 +130,10 @@ tbody tr:last-child td{border-bottom:none}
     <button class="btn-print" onclick="window.print()">🖨️ Print Invoice</button>
 </div>
 <div class="wrap">
+    <?php if ($labWm): ?>
+    <img src="<?= LAB_APP_URL . labClean($labWm) ?>"
+         alt="" class="watermark" aria-hidden="true">
+    <?php endif; ?>
     <div class="head">
         <div>
             <?php if ($labLogo): ?>

@@ -56,6 +56,7 @@ $labPhone   = labGetSetting($labDb, 'lab_phone',     '');
 $labEmail   = labGetSetting($labDb, 'lab_email',     '');
 $labLogo    = labGetSetting($labDb, 'lab_logo',      '');
 $labSig     = labGetSetting($labDb, 'lab_signature', '');
+$labWm      = labGetSetting($labDb, 'lab_watermark', '');
 $footer     = labGetSetting($labDb, 'report_footer', 'Results are for clinical guidance only. Consult your physician.');
 
 $age = $order['age'] ? $order['age'] : null;
@@ -101,6 +102,19 @@ body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; 
     display: flex;
     flex-direction: column;
     min-height: 297mm;
+}
+
+/* ── WATERMARK ── */
+.cat-page  { position: relative; }
+.watermark {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) ;
+    width: 70%; max-width: 420px;
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
 }
 
 /* ── HEADER ── */
@@ -229,6 +243,7 @@ table { width: 100%; border-collapse: collapse; }
     .cat-banner-name  { font-size: 14px; }
     .cat-banner-count { font-size: 13px; }
     .body { padding: 10px 20px; flex: 1; overflow: hidden; }
+    .watermark { opacity: 0.06; }
     .test-block        { margin-bottom: 8px; border-radius: 4px; break-inside: avoid; }
     .test-block-head   { padding: 5px 10px; break-after: avoid; }
     .test-block-name   { font-size: 15px; }
@@ -268,6 +283,11 @@ foreach ($itemsByCategory as $catName => $catItems):
 
 <!-- ══ CATEGORY PAGE <?= $catIndex ?>/<?= $totalCategories ?> — <?= labClean($catName) ?> ══ -->
 <div class="cat-page">
+
+    <?php if ($labWm): ?>
+    <img src="<?= LAB_APP_URL . labClean($labWm) ?>"
+         alt="" class="watermark" aria-hidden="true">
+    <?php endif; ?>
 
     <!-- ── HEADER (full, on every page) ── -->
     <div class="head">
