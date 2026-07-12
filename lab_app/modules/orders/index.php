@@ -1,7 +1,6 @@
 <?php
 $pageTitle = 'Orders / Tests';
 require_once __DIR__ . '/../../includes/header.php';
-labRequireAccess('orders');
 
 $statusFilter = $_GET['status'] ?? '';
 $sql = "SELECT o.*, p.name as patient_name, p.patient_id as pid,
@@ -68,9 +67,6 @@ $statuses = ['pending','sample_collected','processing','completed','delivered','
                         </td>
                     </tr>
                     <?php endforeach; ?>
-                    <?php if (empty($orders)): ?>
-                    <tr><td colspan="8" class="text-center text-muted py-4">No orders found.</td></tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

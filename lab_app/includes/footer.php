@@ -13,7 +13,7 @@ $(document).ready(function(){
             if (!$.fn.DataTable.isDataTable(this)) {
                 $(this).DataTable({
                     pageLength: 15,
-                    language: { search: '', searchPlaceholder: '🔍 Search...' },
+                    language: { search: '', searchPlaceholder: '🔍 Search...', emptyTable: 'No records found.' },
                     dom: '<"row mb-3"<"col-sm-6"l><"col-sm-6 text-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
                     columnDefs: [{ targets: '_all', defaultContent: '' }],
                 });
