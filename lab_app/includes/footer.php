@@ -1,4 +1,4 @@
-    </div><!-- /page-content -->
+</div><!-- /page-content -->
 </div><!-- /main-wrapper -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -9,10 +9,15 @@
 <script>
 $(document).ready(function(){
     if ($.fn.DataTable) {
-        $('.dt-table').DataTable({
-            pageLength: 15,
-            language: { search: '', searchPlaceholder: '🔍 Search...' },
-            dom: '<"row mb-3"<"col-sm-6"l><"col-sm-6 text-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
+        $('.dt-table').each(function() {
+            if (!$.fn.DataTable.isDataTable(this)) {
+                $(this).DataTable({
+                    pageLength: 15,
+                    language: { search: '', searchPlaceholder: '🔍 Search...' },
+                    dom: '<"row mb-3"<"col-sm-6"l><"col-sm-6 text-end"f>>rt<"row mt-3"<"col-sm-6"i><"col-sm-6"p>>',
+                    columnDefs: [{ targets: '_all', defaultContent: '' }],
+                });
+            }
         });
     }
     $('[data-bs-toggle="tooltip"]').each(function(){ new bootstrap.Tooltip(this); });
