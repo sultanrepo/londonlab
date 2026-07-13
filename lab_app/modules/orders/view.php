@@ -211,7 +211,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
 
 // Auto-determine Normal / Abnormal from range string
 function autoStatus(string $value, string $range): string {
-    if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false) return 'normal';
+    if ($value === '') return 'pending';
+    if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false
+        || stripos($range,'non-reactive')!==false || stripos($range,'no growth')!==false) return 'normal';
     $num = (float)$value;
     if (!is_numeric(trim($value))) return 'normal';
     if (preg_match('/^([\d.]+)-([\d.]+)$/', trim($range), $m))
@@ -600,20 +602,28 @@ $pageTitle = labClean($order['order_no']);
                                 <label class="form-label fw-semibold">Result Value</label>
                                 <input type="text"
                                        name="result_value[<?= $item['id'] ?>]"
-                                       class="form-control form-control-lg"
+                                       class="form-control form-control-lg simple-result-input"
+                                       data-itemid="<?= $item['id'] ?>"
+                                       data-range="<?= labClean($item['normal_range']??'') ?>"
                                        value="<?= labClean($item['result_value']??'') ?>"
                                        placeholder="Enter result..."
-                                       autofocus>
+                                       autofocus
+                                       autocomplete="off">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Status</label>
-                                <select name="result_status[<?= $item['id'] ?>]" class="form-select form-select-lg">
-                                    <?php foreach (['pending','normal','abnormal','critical'] as $rs): ?>
-                                    <option value="<?= $rs ?>" <?= ($item['result_status']==$rs)?'selected':'' ?>>
-                                        <?= ucfirst($rs) ?>
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <div class="d-flex align-items-center" style="height:48px;">
+                                    <span id="simple_badge_<?= $item['id'] ?>"
+                                          class="badge-status status-<?= $item['result_status']??'pending' ?>"
+                                          style="font-size:14px;padding:8px 16px;">
+                                        <?= ucfirst($item['result_status']??'pending') ?>
+                                    </span>
+                                </div>
+                                <!-- hidden: auto-updated by JS, submitted with form -->
+                                <input type="hidden"
+                                       name="result_status[<?= $item['id'] ?>]"
+                                       id="simple_status_<?= $item['id'] ?>"
+                                       value="<?= $item['result_status']??'pending' ?>">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Notes</label>
@@ -687,25 +697,39 @@ $pageTitle = labClean($order['order_no']);
 <?php
 $extraJs = <<<'JS'
 <script>
-// ── HELPER: update status badge ───────────────────────────────
+// ── SHARED: parse range and return normal|abnormal|pending ────
+function calcStatus(val, range) {
+    if (val === '' || val === null) return 'pending';
+    const num = parseFloat(val);
+    if (isNaN(num)) return 'pending';
+    if (!range || range === '' || /see report|negative|non-reactive|no growth/i.test(range)) return 'normal';
+    const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
+    if (dashM) return (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
+    const ltM = range.match(/^<([\d.]+)$/);
+    if (ltM) return num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
+    const gtM = range.match(/^>([\d.]+)$/);
+    if (gtM) return num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
+    return 'normal';
+}
+
+// ── SUB-PARAMETER: update badge for panel tests ───────────────
 function updateBadge(itemId, paramId, val, range) {
     const badge = document.querySelector('.live-status-' + itemId + '_' + paramId);
     if (!badge) return;
-    if (val === '' || isNaN(parseFloat(val))) {
-        badge.className = 'badge-status status-pending live-status-' + itemId + '_' + paramId;
-        badge.textContent = 'Pending';
-        return;
-    }
-    const num = parseFloat(val);
-    let status = 'normal';
-    const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
-    if (dashM) status = (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
-    const ltM = range.match(/^<([\d.]+)$/);
-    if (ltM) status = num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
-    const gtM = range.match(/^>([\d.]+)$/);
-    if (gtM) status = num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
+    const status = calcStatus(val, range);
     badge.className = 'badge-status status-' + status + ' live-status-' + itemId + '_' + paramId;
     badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// ── SIMPLE TEST: update badge + hidden status input ───────────
+function updateSimpleBadge(itemId, val, range) {
+    const badge  = document.getElementById('simple_badge_'  + itemId);
+    const hidden = document.getElementById('simple_status_' + itemId);
+    if (!badge || !hidden) return;
+    const status = calcStatus(val, range);
+    badge.className   = 'badge-status status-' + status;
+    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    hidden.value      = status;
 }
 
 // ── HELPER: get input value by shortname within same modal ────
@@ -811,20 +835,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// ── MAIN: fire on every input change ─────────────────────────
+// ── MAIN: fire on every sub-param input change ───────────────
 document.querySelectorAll('.sub-input').forEach(function(input) {
     input.addEventListener('input', function() {
         const itemId   = this.dataset.itemid;
         const paramId  = this.dataset.paramid;
         const range    = this.dataset.range || '';
         const testCode = this.dataset.testcode;
-
-        // Update this field's status badge
         updateBadge(itemId, paramId, this.value, range);
-
-        // Re-run all formulas for this test
         runFormulas(itemId, testCode);
     });
+});
+
+// ── MAIN: fire on every simple test input change ─────────────
+document.querySelectorAll('.simple-result-input').forEach(function(input) {
+    input.addEventListener('input', function() {
+        updateSimpleBadge(this.dataset.itemid, this.value, this.dataset.range);
+    });
+    // Run once on modal open so existing values show correct status
+    const modalEl = input.closest('.modal');
+    if (modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function() {
+            updateSimpleBadge(input.dataset.itemid, input.value, input.dataset.range);
+        });
+    }
 });
 </script>
 JS;
