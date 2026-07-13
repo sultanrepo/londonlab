@@ -16,30 +16,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone         = trim($_POST['phone']         ?? '');
     $email         = trim($_POST['email']         ?? '');
     $address       = trim($_POST['address']       ?? '');
-    $referral_type = $_POST['referral_type']      ?? 'self';
-    $doctor_id     = ($referral_type === 'doctor') ? (int)($_POST['doctor_id'] ?? 0) : null;
-    $referred_by   = '';
+    $referral_type    = $_POST['referral_type']       ?? 'self';
+    $doctor_id        = ($referral_type === 'doctor') ? (int)($_POST['doctor_id'] ?? 0) : null;
+    $external_ref_name = trim($_POST['external_ref_name'] ?? '');
+    $referred_by      = '';
     if ($referral_type === 'doctor' && $doctor_id) {
         $doc = $labDb->fetch("SELECT name FROM doctors WHERE id=?", [$doctor_id]);
         $referred_by = $doc['name'] ?? '';
+    } elseif ($referral_type === 'external') {
+        $referred_by = $external_ref_name;
     }
     if (!$name)  $errors[] = 'Patient name is required.';
     if (!$phone) $errors[] = 'Phone is required.';
     if ($referral_type === 'doctor' && !$doctor_id) $errors[] = 'Please select a doctor.';
+    if ($referral_type === 'external' && !$external_ref_name) $errors[] = 'Please enter the referring doctor\'s name.';
 
     if (empty($errors)) {
         $pid = labGeneratePatientId($labDb);
+        // external referral stores as 'self' in referral_type (no commission), but referred_by captures the name
+        $db_referral_type = ($referral_type === 'external') ? 'self' : $referral_type;
         $labDb->execute("
             INSERT INTO patients (patient_id,name,age,gender,blood_group,phone,email,address,referral_type,doctor_id,referred_by)
             VALUES (?,?,?,?,?,?,?,?,?,?,?)
-        ", [$pid,$name,$age?:null,$gender,$blood_group,$phone,$email,$address,$referral_type,$doctor_id,$referred_by]);
+        ", [$pid,$name,$age?:null,$gender,$blood_group,$phone,$email,$address,$db_referral_type,$doctor_id,$referred_by]);
         $newId = $labDb->lastInsertId();
         labSetFlash('success',"Patient $pid registered!");
         header('Location: '.LAB_APP_URL.'/modules/patients/view.php?lab='.$slug.'&id='.$newId); exit;
     }
 }
-$selRef = $_POST['referral_type'] ?? 'self';
-$selDoc = (int)($_POST['doctor_id'] ?? 0);
+$selRef    = $_POST['referral_type'] ?? 'self';
+$selDoc    = (int)($_POST['doctor_id'] ?? 0);
+$selExtRef = $_POST['external_ref_name'] ?? '';
 ?>
 <div class="page-header">
     <div><h2><i class="bi bi-person-plus-fill me-2 text-primary"></i>New Patient</h2></div>
@@ -95,19 +102,26 @@ $selDoc = (int)($_POST['doctor_id'] ?? 0);
                 <!-- Referral -->
                 <div class="col-12"><div class="divider"></div><h6 class="fw-bold mb-3"><i class="bi bi-diagram-3-fill me-2 text-primary"></i>Referral</h6></div>
                 <div class="col-12">
-                    <div class="d-flex gap-3">
-                        <label id="optDoctor" style="flex:1;border:2px solid <?= $selRef==='doctor'?'#1a6b4a':'#e2e8f0' ?>;border-radius:10px;padding:14px 18px;cursor:pointer;background:<?= $selRef==='doctor'?'#f0fdf4':'#fff' ?>;transition:all .2s;" onclick="setRef('doctor')">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <label id="optDoctor" style="flex:1;min-width:180px;border:2px solid <?= $selRef==='doctor'?'#1a6b4a':'#e2e8f0' ?>;border-radius:10px;padding:14px 18px;cursor:pointer;background:<?= $selRef==='doctor'?'#f0fdf4':'#fff' ?>;transition:all .2s;" onclick="setRef('doctor')">
                             <input type="radio" name="referral_type" value="doctor" style="display:none;" <?= $selRef==='doctor'?'checked':'' ?>>
                             <div class="d-flex align-items-center gap-3">
                                 <div id="docIcon" style="width:44px;height:44px;border-radius:10px;background:<?= $selRef==='doctor'?'#dcfce7':'#f1f5f9' ?>;display:grid;place-items:center;font-size:22px;">🩺</div>
                                 <div><div class="fw-bold" style="font-size:14px;">Doctor Referral</div><div class="text-muted" style="font-size:12px;">Commission applicable</div></div>
                             </div>
                         </label>
-                        <label id="optSelf" style="flex:1;border:2px solid <?= $selRef==='self'?'#1a6b4a':'#e2e8f0' ?>;border-radius:10px;padding:14px 18px;cursor:pointer;background:<?= $selRef==='self'?'#f0fdf4':'#fff' ?>;transition:all .2s;" onclick="setRef('self')">
+                        <label id="optSelf" style="flex:1;min-width:180px;border:2px solid <?= $selRef==='self'?'#1a6b4a':'#e2e8f0' ?>;border-radius:10px;padding:14px 18px;cursor:pointer;background:<?= $selRef==='self'?'#f0fdf4':'#fff' ?>;transition:all .2s;" onclick="setRef('self')">
                             <input type="radio" name="referral_type" value="self" style="display:none;" <?= $selRef==='self'?'checked':'' ?>>
                             <div class="d-flex align-items-center gap-3">
                                 <div id="selfIcon" style="width:44px;height:44px;border-radius:10px;background:<?= $selRef==='self'?'#dcfce7':'#f1f5f9' ?>;display:grid;place-items:center;font-size:22px;">🚶</div>
                                 <div><div class="fw-bold" style="font-size:14px;">Self / Walk-in</div><div class="text-muted" style="font-size:12px;">No commission</div></div>
+                            </div>
+                        </label>
+                        <label id="optExternal" style="flex:1;min-width:180px;border:2px solid <?= $selRef==='external'?'#1a6b4a':'#e2e8f0' ?>;border-radius:10px;padding:14px 18px;cursor:pointer;background:<?= $selRef==='external'?'#f0fdf4':'#fff' ?>;transition:all .2s;" onclick="setRef('external')">
+                            <input type="radio" name="referral_type" value="external" style="display:none;" <?= $selRef==='external'?'checked':'' ?>>
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="extIcon" style="width:44px;height:44px;border-radius:10px;background:<?= $selRef==='external'?'#dcfce7':'#f1f5f9' ?>;display:grid;place-items:center;font-size:22px;">📋</div>
+                                <div><div class="fw-bold" style="font-size:14px;">External Referral</div><div class="text-muted" style="font-size:12px;">No commission · Name only</div></div>
                             </div>
                         </label>
                     </div>
@@ -130,6 +144,16 @@ $selDoc = (int)($_POST['doctor_id'] ?? 0);
                         <span style="font-size:13px;">Walk-in — <strong>no commission</strong> deducted.</span>
                     </div>
                 </div>
+                <div class="col-12" id="externalSection" style="display:<?= $selRef==='external'?'block':'none' ?>;">
+                    <label class="form-label">Referring Doctor Name <span class="text-danger">*</span></label>
+                    <input type="text" name="external_ref_name" id="externalRefName" class="form-control"
+                           placeholder="e.g. Dr. Suresh Kumar"
+                           value="<?= labClean($selExtRef) ?>">
+                    <div class="form-text">
+                        <i class="bi bi-info-circle me-1 text-success"></i>
+                        This doctor is not tied to your lab — <strong>no commission</strong> will be deducted. The name will appear on the report as <em>Ref. By</em>.
+                    </div>
+                </div>
             </div>
             <div class="divider"></div>
             <div class="d-flex gap-2 justify-content-end">
@@ -145,16 +169,36 @@ $selDoc = (int)($_POST['doctor_id'] ?? 0);
 $extraJs = <<<'JS'
 <script>
 function setRef(type) {
-    const isDoc = type==='doctor';
-    document.getElementById('doctorSection').style.display = isDoc?'block':'none';
-    document.getElementById('selfSection').style.display   = isDoc?'none':'block';
-    document.getElementById('doctorSelect').required = isDoc;
-    const od=document.getElementById('optDoctor'),os=document.getElementById('optSelf');
-    const di=document.getElementById('docIcon'),si=document.getElementById('selfIcon');
-    od.style.borderColor=isDoc?'#1a6b4a':'#e2e8f0'; od.style.background=isDoc?'#f0fdf4':'#fff'; di.style.background=isDoc?'#dcfce7':'#f1f5f9';
-    os.style.borderColor=!isDoc?'#1a6b4a':'#e2e8f0'; os.style.background=!isDoc?'#f0fdf4':'#fff'; si.style.background=!isDoc?'#dcfce7':'#f1f5f9';
+    const isDoc = type === 'doctor';
+    const isExt = type === 'external';
+    const isSelf = type === 'self';
+
+    document.getElementById('doctorSection').style.display   = isDoc  ? 'block' : 'none';
+    document.getElementById('selfSection').style.display     = isSelf ? 'block' : 'none';
+    document.getElementById('externalSection').style.display = isExt  ? 'block' : 'none';
+
+    document.getElementById('doctorSelect').required       = isDoc;
+    document.getElementById('externalRefName').required    = isExt;
+
+    const opts = {
+        doctor:   { el: 'optDoctor',   icon: 'docIcon'  },
+        self:     { el: 'optSelf',     icon: 'selfIcon' },
+        external: { el: 'optExternal', icon: 'extIcon'  },
+    };
+    Object.entries(opts).forEach(([t, {el, icon}]) => {
+        const active = t === type;
+        const labelEl = document.getElementById(el);
+        const iconEl  = document.getElementById(icon);
+        if (labelEl) { labelEl.style.borderColor = active ? '#1a6b4a' : '#e2e8f0'; labelEl.style.background = active ? '#f0fdf4' : '#fff'; }
+        if (iconEl)  { iconEl.style.background   = active ? '#dcfce7' : '#f1f5f9'; }
+        const radio = labelEl ? labelEl.querySelector('input[type=radio]') : null;
+        if (radio) radio.checked = active;
+    });
 }
-document.addEventListener('DOMContentLoaded',()=>{ const c=document.querySelector('[name="referral_type"]:checked'); if(c) setRef(c.value); });
+document.addEventListener('DOMContentLoaded', () => {
+    const c = document.querySelector('[name="referral_type"]:checked');
+    if (c) setRef(c.value);
+});
 </script>
 JS;
 ?>
