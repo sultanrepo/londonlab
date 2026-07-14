@@ -24,6 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $error = $result['message'];
 }
+
+// Prefill email/password from the URL (?email=...&pass=...) so a shareable
+// login link can auto-populate the form — POST value (a failed attempt)
+// takes priority over the URL, which takes priority over nothing.
+// Values are trimmed of stray quotes in case a query string was pasted
+// with them, e.g. copied as email='foo@bar.com'.
+$prefillEmail = trim($_POST['email'] ?? $_GET['email'] ?? '', " '\"");
+$prefillPass  = trim($_POST['password'] ?? $_GET['pass'] ?? '', " '\"");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -109,7 +117,7 @@ body{font-family:'DM Sans',sans-serif;background:#f1f5f3;min-height:100vh;displa
                 <div class="input-wrap">
                     <i class="bi bi-envelope icon"></i>
                     <input type="email" name="email" required placeholder="you@lab.com"
-                        value="<?= labClean($_POST['email'] ?? 'aftab@londonlab.in') ?>">
+                        value="<?= labClean($prefillEmail) ?>">
                 </div>
             </div>
             <div class="form-group">
@@ -117,7 +125,7 @@ body{font-family:'DM Sans',sans-serif;background:#f1f5f3;min-height:100vh;displa
                 <div class="input-wrap">
                     <i class="bi bi-lock icon"></i>
                     <input type="password" name="password" required placeholder="Enter your password"
-                        value="Aftab@786">
+                        value="<?= labClean($prefillPass) ?>">
                 </div>
             </div>
             <button type="submit" class="btn-login">
