@@ -319,7 +319,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['remove_test_item']) && 
         }
 
         $labDb->commit();
-        labSetFlash('success', '"'.$item['test_name'].'" removed. New order total: '.labMoney($newTotal).'.'.$commNote);
+
+        $refundNote = '';
+        if ($totalPaid > $newNet + 0.0001) {
+            $refundNote = ' Note: ₹'.number_format($totalPaid, 2).' was already paid — a refund of '.labMoney($totalPaid - $newNet).' is now due to the patient.';
+        }
+
+        labSetFlash('success', '"'.$item['test_name'].'" removed. New order total: '.labMoney($newTotal).'.'.$refundNote.$commNote);
     } catch (Exception $e) {
         $labDb->rollback();
         labSetFlash('error', 'Failed to remove test: '.$e->getMessage());
@@ -381,10 +387,10 @@ function autoStatus(string $value, string $range): string {
         || stripos($range,'non-reactive')!==false || stripos($range,'no growth')!==false) return 'normal';
     $num = (float)$value;
     if (!is_numeric(trim($value))) return 'normal';
-    if (preg_match('/^([\d.]+)-([\d.]+)$/', trim($range), $m))
+    if (preg_match('/^([\d.]+)\s*-\s*([\d.]+)$/', trim($range), $m))
         return ($num < (float)$m[1] || $num > (float)$m[2]) ? 'abnormal' : 'normal';
-    if (preg_match('/^<([\d.]+)$/', trim($range), $m))  return $num >= (float)$m[1] ? 'abnormal' : 'normal';
-    if (preg_match('/^>([\d.]+)$/', trim($range), $m))  return $num <= (float)$m[1] ? 'abnormal' : 'normal';
+    if (preg_match('/^<\s*([\d.]+)$/', trim($range), $m))  return $num >= (float)$m[1] ? 'abnormal' : 'normal';
+    if (preg_match('/^>\s*([\d.]+)$/', trim($range), $m))  return $num <= (float)$m[1] ? 'abnormal' : 'normal';
     return 'normal';
 }
 
@@ -496,7 +502,9 @@ $pageTitle = labClean($order['order_no']);
                             </button>
                             <?php endif; ?>
                             <?php if ($canManageItems && count($items) > 1): ?>
-                            <form method="POST" class="d-inline remove-test-form" data-test-name="<?= labClean($item['test_name']) ?>">
+                            <form method="POST" class="d-inline remove-test-form"
+                                  data-test-name="<?= labClean($item['test_name']) ?>"
+                                  data-test-price="<?= (float)$item['price'] ?>">
                                 <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
                                 <input type="hidden" name="remove_test_item" value="1">
                                 <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
@@ -652,8 +660,12 @@ $pageTitle = labClean($order['order_no']);
                     <span class="text-muted">Paid</span><strong class="text-success"><?= labMoney($totalPaid) ?></strong>
                 </div>
                 <div class="d-flex justify-content-between py-2">
-                    <strong>Balance</strong>
-                    <strong class="<?= $balance>0?'text-danger':'text-success' ?>"><?= labMoney($balance) ?></strong>
+                    <strong><?= $balance < -0.0001 ? 'Refund Due' : 'Balance' ?></strong>
+                    <?php if ($balance < -0.0001): ?>
+                    <strong class="text-warning"><?= labMoney(abs($balance)) ?> overpaid</strong>
+                    <?php else: ?>
+                    <strong class="<?= $balance>0.0001?'text-danger':'text-success' ?>"><?= labMoney($balance) ?></strong>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -974,11 +986,11 @@ function calcStatus(val, range) {
     if (isQualitativeRange(range)) return 'normal'; // qualitative — no status logic
     const num = parseFloat(val);
     if (isNaN(num)) return 'pending'; // non-numeric in a numeric field
-    const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
+    const dashM = range.match(/^([\d.]+)\s*-\s*([\d.]+)$/);
     if (dashM) return (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
-    const ltM = range.match(/^<([\d.]+)$/);
+    const ltM = range.match(/^<\s*([\d.]+)$/);
     if (ltM) return num >= parseFloat(ltM[1]) ? 'abnormal' : 'normal';
-    const gtM = range.match(/^>([\d.]+)$/);
+    const gtM = range.match(/^>\s*([\d.]+)$/);
     if (gtM) return num <= parseFloat(gtM[1]) ? 'abnormal' : 'normal';
     return 'normal';
 }
@@ -1188,45 +1200,70 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 })();
 
 // ── REMOVE TEST: SweetAlert2 confirmation before submitting ──
-document.querySelectorAll('.remove-test-form').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+(function () {
+    // Current order figures, embedded server-side, used only to estimate
+    // whether removing a test will leave the order overpaid — the real
+    // calculation (with proportional discount scaling) always happens
+    // authoritatively on the server; this is just a heads-up for the user.
+    const orderTotalAmount = <?= json_encode((float)$order['total_amount']) ?>;
+    const orderDiscountSum = <?= json_encode((float)$order['discount'] + (float)$order['doctor_discount']) ?>;
+    const orderTotalPaid   = <?= json_encode((float)$totalPaid) ?>;
 
-        const name = form.dataset.testName || 'this test';
-        const msg  = 'Remove "' + name + '" from this order? The order total, ' +
-                     'discount, and any doctor commission will be recalculated ' +
-                     'automatically. This cannot be undone.';
+    function fmtMoney(n) {
+        return '₹' + n.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
 
-        function doSubmit() {
-            // Prevent double-submits if the user double-clicks
-            const btn = form.querySelector('button[type="submit"]');
-            if (btn) btn.disabled = true;
-            HTMLFormElement.prototype.submit.call(form);
-        }
+    document.querySelectorAll('.remove-test-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
 
-        // If SweetAlert2 didn't load (blocked CDN, offline, ad-blocker, etc.)
-        // fall back to a native confirm() instead of silently doing nothing.
-        if (typeof Swal === 'undefined') {
-            if (window.confirm(msg)) doSubmit();
-            return;
-        }
+            const name  = form.dataset.testName || 'this test';
+            const price = parseFloat(form.dataset.testPrice) || 0;
 
-        Swal.fire({
-            icon: 'warning',
-            title: 'Remove this test?',
-            text: msg,
-            showCancelButton: true,
-            confirmButtonText: 'Yes, remove it',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#dc2626',
-            cancelButtonColor: '#64748b',
-            reverseButtons: true
-        }).then(function (result) {
-            if (result.isConfirmed) doSubmit();
+            const predictedTotal    = Math.max(0, orderTotalAmount - price);
+            const predictedDiscount = Math.min(orderDiscountSum, predictedTotal);
+            const predictedNet      = Math.max(0, predictedTotal - predictedDiscount);
+            const predictedRefund   = orderTotalPaid - predictedNet;
+
+            let msg = 'Remove "' + name + '" from this order? The order total, ' +
+                      'discount, and any doctor commission will be recalculated ' +
+                      'automatically. This cannot be undone.';
+            if (predictedRefund > 0.0001) {
+                msg += ' This order was already paid ' + fmtMoney(orderTotalPaid) +
+                       ' — removing this test will leave a refund of ' +
+                       fmtMoney(predictedRefund) + ' due to the patient.';
+            }
+
+            function doSubmit() {
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn) btn.disabled = true;
+                HTMLFormElement.prototype.submit.call(form);
+            }
+
+            // If SweetAlert2 didn't load (blocked CDN, offline, ad-blocker, etc.)
+            // fall back to a native confirm() instead of silently doing nothing.
+            if (typeof Swal === 'undefined') {
+                if (window.confirm(msg)) doSubmit();
+                return;
+            }
+
+            Swal.fire({
+                icon: predictedRefund > 0.0001 ? 'error' : 'warning',
+                title: predictedRefund > 0.0001 ? 'Remove test? Refund will be due' : 'Remove this test?',
+                text: msg,
+                showCancelButton: true,
+                confirmButtonText: 'Yes, remove it',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
+                reverseButtons: true
+            }).then(function (result) {
+                if (result.isConfirmed) doSubmit();
+            });
         });
     });
-});
+})();
 </script>
 JS;
 ?>
