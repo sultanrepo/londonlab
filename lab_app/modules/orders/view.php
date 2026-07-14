@@ -228,6 +228,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && l
     // self / external referrals get lab discount only, regardless of what's posted.
     $newDoctorDiscount = $isDoctorRef ? max(0, (float)($_POST['doctor_discount'] ?? 0)) : 0;
 
+    // Server-side guard: total discount can never exceed the order subtotal.
+    // The client-side check can be bypassed (disabled JS, direct POST, replayed
+    // form, etc.), so this is the authoritative check — never trust the client alone.
+    if (($newDiscount + $newDoctorDiscount) > $order['total_amount'] + 0.0001) {
+        labSetFlash('error', 'Total discount (₹'.number_format($newDiscount + $newDoctorDiscount, 2).') cannot be greater than the subtotal amount (₹'.number_format($order['total_amount'], 2).').');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+
     $newNet = max(0, $order['total_amount'] - $newDiscount - $newDoctorDiscount);
     $labDb->execute("UPDATE orders SET discount=?, doctor_discount=?, net_amount=? WHERE id=?",
         [$newDiscount, $newDoctorDiscount, $newNet, $id]);

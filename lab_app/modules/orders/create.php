@@ -25,14 +25,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$patient_id)     $errors[] = 'Please select a patient.';
     if (empty($test_ids)) $errors[] = 'Select at least one test.';
 
+    // Compute the real total from the DB (never trust a client-submitted total)
+    // so we can validate the discount server-side before writing anything.
+    $total = 0;
+    if (!empty($test_ids)) {
+        $placeholders = implode(',', array_fill(0, count($test_ids), '?'));
+        $tests        = $labDb->fetchAll("SELECT id,price FROM tests WHERE id IN ($placeholders)", $test_ids);
+        $total        = array_sum(array_column($tests, 'price'));
+    }
+
+    // Server-side guard: total discount can never exceed the subtotal.
+    // The client-side check can be bypassed (disabled JS, direct POST, etc.),
+    // so this is the authoritative check — never trust the client alone.
+    if (($discount + $doctor_discount) > $total + 0.0001) {
+        $errors[] = 'Total discount (₹'.number_format($discount + $doctor_discount, 2).') cannot be greater than the subtotal amount (₹'.number_format($total, 2).').';
+    }
+
     if (empty($errors)) {
         $labDb->beginTransaction();
         try {
-            $orderNo      = labGenerateOrderNo($labDb);
-            $placeholders = implode(',', array_fill(0, count($test_ids), '?'));
-            $tests        = $labDb->fetchAll("SELECT id,price FROM tests WHERE id IN ($placeholders)", $test_ids);
-            $total        = array_sum(array_column($tests, 'price'));
-            $net          = max(0, $total - $discount - $doctor_discount);
+            $orderNo = labGenerateOrderNo($labDb);
+            $net     = max(0, $total - $discount - $doctor_discount);
 
             $labDb->execute(
                 "INSERT INTO orders (order_no,patient_id,created_by,total_amount,discount,doctor_discount,net_amount,notes,status) VALUES (?,?,?,?,?,?,?,?,'pending')",
