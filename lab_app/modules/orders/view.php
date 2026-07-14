@@ -179,8 +179,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
     } else {
         // Simple test — single result
         $val = trim($_POST['result_value'][$itemId] ?? '');
-        $st  = $_POST['result_status'][$itemId] ?? 'pending';
         $nt  = trim($_POST['result_notes'][$itemId] ?? '');
+        // Status is auto-derived from the test's (gender-resolved) range —
+        // never trust the client-submitted hidden field as the source of truth.
+        $itemRange = '';
+        foreach ($items as $it) {
+            if ($it['id'] == $itemId) { $itemRange = $it['normal_range'] ?? ''; break; }
+        }
+        $resolvedRange = resolveRangeForGender($itemRange, $order['gender'] ?? '');
+        $st = ($val !== '') ? autoStatus($val, $resolvedRange) : 'pending';
         $labDb->execute("UPDATE order_items SET result_value=?,result_status=?,result_notes=?,completed_at=IF(?!='pending',NOW(),NULL) WHERE id=? AND order_id=?",
             [$val,$st,$nt,$st,$itemId,$id]);
     }
@@ -221,6 +228,22 @@ function autoStatus(string $value, string $range): string {
     if (preg_match('/^<([\d.]+)$/', trim($range), $m))  return $num >= (float)$m[1] ? 'abnormal' : 'normal';
     if (preg_match('/^>([\d.]+)$/', trim($range), $m))  return $num <= (float)$m[1] ? 'abnormal' : 'normal';
     return 'normal';
+}
+
+// Simple tests store a single normal_range column, but some are written as a
+// compound gender string, e.g. "0-15 (M) / 0-20 (F) mm/hr" or
+// "13.0-17.0 (M) / 12.0-15.5 (F) g/dL". Pull out the segment for the given
+// gender so autoStatus() gets a clean "0-20" instead of the whole string
+// (which would never match the dash regex and silently default to 'normal').
+function resolveRangeForGender(string $range, ?string $gender): string {
+    $range = trim($range);
+    if ($range === '') return $range;
+    $g = strtoupper(substr(trim((string)$gender), 0, 1)); // 'M' or 'F'
+    if ($g !== 'M' && $g !== 'F') return $range;
+    if (preg_match('/([<>]?[\d.]+(?:\s*-\s*[\d.]+)?)\s*\(\s*' . $g . '(?:ale)?\s*\)/i', $range, $m)) {
+        return trim($m[1]);
+    }
+    return $range;
 }
 
 $pageTitle = labClean($order['order_no']);
@@ -576,10 +599,18 @@ $pageTitle = labClean($order['order_no']);
                                                autocomplete="off">
                                     </td>
                                     <td>
+                                        <?php
+                                        $spQual = (trim($nr??'') === '' || !preg_match('/\d/', $nr??'')
+                                            || preg_match('/see report|negative|non-reactive|no growth/i', $nr??''));
+                                        ?>
+                                        <?php if (!$spQual): ?>
                                         <span class="badge-status status-<?= $rst ?> live-status-<?= $item['id'] ?>_<?= $sp['id'] ?>"
                                               style="font-size:10px;">
                                             <?= ucfirst($rst) ?>
                                         </span>
+                                        <?php else: ?>
+                                        <span class="text-muted" style="font-size:11px;">—</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -605,11 +636,18 @@ $pageTitle = labClean($order['order_no']);
                                        class="form-control form-control-lg simple-result-input"
                                        data-itemid="<?= $item['id'] ?>"
                                        data-range="<?= labClean($item['normal_range']??'') ?>"
+                                       data-gender="<?= labClean($order['gender']??'') ?>"
                                        value="<?= labClean($item['result_value']??'') ?>"
                                        placeholder="Enter result..."
                                        autofocus
                                        autocomplete="off">
                             </div>
+                            <?php
+                            $snr = trim($item['normal_range'] ?? '');
+                            $sIsQual = ($snr === '' || !preg_match('/\d/', $snr)
+                                || preg_match('/see report|negative|non-reactive|no growth/i', $snr));
+                            ?>
+                            <?php if (!$sIsQual): ?>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Status</label>
                                 <div class="d-flex align-items-center" style="height:48px;">
@@ -619,12 +657,14 @@ $pageTitle = labClean($order['order_no']);
                                         <?= ucfirst($item['result_status']??'pending') ?>
                                     </span>
                                 </div>
-                                <!-- hidden: auto-updated by JS, submitted with form -->
                                 <input type="hidden"
                                        name="result_status[<?= $item['id'] ?>]"
                                        id="simple_status_<?= $item['id'] ?>"
                                        value="<?= $item['result_status']??'pending' ?>">
                             </div>
+                            <?php else: ?>
+                            <input type="hidden" name="result_status[<?= $item['id'] ?>]" value="normal">
+                            <?php endif; ?>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Notes</label>
                                 <input type="text"
@@ -698,11 +738,18 @@ $pageTitle = labClean($order['order_no']);
 $extraJs = <<<'JS'
 <script>
 // ── SHARED: parse range and return normal|abnormal|pending ────
+function isQualitativeRange(range) {
+    if (!range || range === '') return true;
+    if (/see report|negative|non-reactive|no growth/i.test(range)) return true;
+    if (!/\d/.test(range)) return true; // no digits = qualitative (Brown, Clear, Formed etc.)
+    return false;
+}
+
 function calcStatus(val, range) {
-    if (val === '' || val === null) return 'pending';
+    if (val === '' || val === null || val === undefined) return 'pending';
+    if (isQualitativeRange(range)) return 'normal'; // qualitative — no status logic
     const num = parseFloat(val);
-    if (isNaN(num)) return 'pending';
-    if (!range || range === '' || /see report|negative|non-reactive|no growth/i.test(range)) return 'normal';
+    if (isNaN(num)) return 'pending'; // non-numeric in a numeric field
     const dashM = range.match(/^([\d.]+)-([\d.]+)$/);
     if (dashM) return (num < parseFloat(dashM[1]) || num > parseFloat(dashM[2])) ? 'abnormal' : 'normal';
     const ltM = range.match(/^<([\d.]+)$/);
@@ -721,12 +768,24 @@ function updateBadge(itemId, paramId, val, range) {
     badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+// ── SIMPLE TEST: resolve compound gender ranges, e.g. "0-15 (M) / 0-20 (F) mm/hr"
+function resolveRangeForGender(range, gender) {
+    range = (range || '').trim();
+    if (range === '') return range;
+    const g = (gender || '').trim().charAt(0).toUpperCase(); // 'M' or 'F'
+    if (g !== 'M' && g !== 'F') return range;
+    const re = new RegExp('([<>]?[\\d.]+(?:\\s*-\\s*[\\d.]+)?)\\s*\\(\\s*' + g + '(?:ale)?\\s*\\)', 'i');
+    const m = range.match(re);
+    return m ? m[1].trim() : range;
+}
+
 // ── SIMPLE TEST: update badge + hidden status input ───────────
-function updateSimpleBadge(itemId, val, range) {
+function updateSimpleBadge(itemId, val, range, gender) {
     const badge  = document.getElementById('simple_badge_'  + itemId);
     const hidden = document.getElementById('simple_status_' + itemId);
     if (!badge || !hidden) return;
-    const status = calcStatus(val, range);
+    const resolvedRange = resolveRangeForGender(range, gender);
+    const status = calcStatus(val, resolvedRange);
     badge.className   = 'badge-status status-' + status;
     badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
     hidden.value      = status;
@@ -850,13 +909,13 @@ document.querySelectorAll('.sub-input').forEach(function(input) {
 // ── MAIN: fire on every simple test input change ─────────────
 document.querySelectorAll('.simple-result-input').forEach(function(input) {
     input.addEventListener('input', function() {
-        updateSimpleBadge(this.dataset.itemid, this.value, this.dataset.range);
+        updateSimpleBadge(this.dataset.itemid, this.value, this.dataset.range, this.dataset.gender);
     });
     // Run once on modal open so existing values show correct status
     const modalEl = input.closest('.modal');
     if (modalEl) {
         modalEl.addEventListener('shown.bs.modal', function() {
-            updateSimpleBadge(input.dataset.itemid, input.value, input.dataset.range);
+            updateSimpleBadge(input.dataset.itemid, input.value, input.dataset.range, input.dataset.gender);
         });
     }
 });
