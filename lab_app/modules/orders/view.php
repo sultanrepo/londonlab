@@ -382,7 +382,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && l
 
 // Auto-determine Normal / Abnormal from range string
 function autoStatus(string $value, string $range): string {
-    alert("Hello from autoStatus: value='$value', range='$range'");
     if ($value === '') return 'pending';
     if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false
         || stripos($range,'non-reactive')!==false || stripos($range,'no growth')!==false) return 'normal';
@@ -1159,7 +1158,7 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 
 // ── EDIT DISCOUNT MODAL: validate discount never exceeds subtotal ──
 (function () {
-    const subtotal    = <?= json_encode((float)$order['total_amount']) ?>;
+    const subtotal    = json_encode((float)$order['total_amount']);
     const discEl      = document.getElementById('modalDiscountInput');
     const docDiscEl   = document.getElementById('modalDoctorDiscountInput'); // may not exist for non-doctor referrals
     const errorEl     = document.getElementById('modalDiscountError');
