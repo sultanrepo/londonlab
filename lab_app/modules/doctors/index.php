@@ -12,13 +12,11 @@ if (isset($_GET['toggle'])) {
 
 $doctors = $labDb->fetchAll("
     SELECT d.*,
-           COUNT(DISTINCT p.id) as total_patients,
-           COALESCE(SUM(CASE WHEN dc.status='pending' THEN dc.commission_amount ELSE 0 END),0) as pending_comm,
-           COALESCE(SUM(CASE WHEN dc.status='paid'    THEN dc.commission_amount ELSE 0 END),0) as paid_comm
+           (SELECT COUNT(*) FROM patients p WHERE p.doctor_id=d.id AND p.is_active=1) as total_patients,
+           (SELECT COALESCE(SUM(dc.commission_amount),0) FROM doctor_commissions dc WHERE dc.doctor_id=d.id AND dc.status='pending') as pending_comm,
+           (SELECT COALESCE(SUM(dc.commission_amount),0) FROM doctor_commissions dc WHERE dc.doctor_id=d.id AND dc.status='paid') as paid_comm
     FROM doctors d
-    LEFT JOIN patients p ON p.doctor_id=d.id AND p.is_active=1
-    LEFT JOIN doctor_commissions dc ON dc.doctor_id=d.id
-    GROUP BY d.id ORDER BY d.name
+    ORDER BY d.name
 ");
 $totalPending = array_sum(array_column($doctors,'pending_comm'));
 ?>
