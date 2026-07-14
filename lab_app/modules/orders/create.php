@@ -214,6 +214,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </small>
                 </div>
 
+                <!-- Discount validation error -->
+                <div id="discountError" class="alert alert-danger py-2 px-3 mb-3" style="display:none;font-size:12px;">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Total discount cannot be greater than the subtotal amount.
+                </div>
+
                 <!-- Net Total -->
                 <div class="d-flex justify-content-between mb-3 p-3 rounded-2" style="background:var(--lc-primary-l);">
                     <strong>Net Total</strong>
@@ -242,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <textarea name="notes" class="form-control" rows="2"></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 btn-lg">
+                <button type="submit" id="createOrderBtn" class="btn btn-primary w-100 btn-lg">
                     <i class="bi bi-check-circle-fill me-2"></i>Create Order
                 </button>
             </div>
@@ -262,9 +268,16 @@ const discEl       = document.getElementById('discountInput');
 const docDiscEl    = document.getElementById('doctorDiscountInput');
 const payEl        = document.getElementById('payAmountInput');
 const selDiv       = document.getElementById('selectedTests');
+const discErrorEl  = document.getElementById('discountError');
+const createBtn    = document.getElementById('createOrderBtn');
 
 function fmt(n) {
     return '₹' + n.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+
+function isDiscountValid(total, disc, docDisc) {
+    // Small epsilon guards against floating point rounding (e.g. 0.1+0.2)
+    return (disc + docDisc) <= total + 0.0001;
 }
 
 function update() {
@@ -296,6 +309,12 @@ function update() {
 
     subEl.textContent = fmt(total);
     netEl.textContent = fmt(net);
+
+    const valid = isDiscountValid(total, disc, docDisc);
+    discEl.classList.toggle('is-invalid', !valid);
+    docDiscEl.classList.toggle('is-invalid', !valid);
+    discErrorEl.style.display = valid ? 'none' : 'block';
+    createBtn.disabled = !valid;
 
     if (!payEl.dataset.modified) payEl.value = net.toFixed(2);
 }
@@ -365,6 +384,20 @@ patientSelect.addEventListener('change', toggleDoctorDiscount);
 
 // Init on page load (handles pre-selected patient)
 toggleDoctorDiscount();
+
+// ── FINAL SAFETY NET: block submit if discount exceeds subtotal ──
+document.getElementById('orderForm').addEventListener('submit', function (e) {
+    const total    = parseFloat(subEl.textContent.replace(/[₹,]/g, '')) || 0;
+    const disc     = parseFloat(discEl.value)    || 0;
+    const docDisc  = parseFloat(docDiscEl.value) || 0;
+    if (!isDiscountValid(total, disc, docDisc)) {
+        e.preventDefault();
+        discErrorEl.style.display = 'block';
+        discEl.classList.add('is-invalid');
+        docDiscEl.classList.add('is-invalid');
+        discEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
 
 // Init
 update();

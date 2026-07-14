@@ -784,7 +784,7 @@ $pageTitle = labClean($order['order_no']);
 <div class="modal fade" id="discountModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
-            <form method="POST">
+            <form method="POST" id="discountForm">
                 <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
                 <input type="hidden" name="update_discount" value="1">
                 <div class="modal-header">
@@ -802,21 +802,25 @@ $pageTitle = labClean($order['order_no']);
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Lab Discount (₹)</label>
-                        <input type="number" name="discount" class="form-control" step="0.01" min="0"
+                        <input type="number" name="discount" id="modalDiscountInput" class="form-control" step="0.01" min="0"
                                value="<?= $order['discount'] ?? 0 ?>">
                     </div>
                     <?php if ($isDoctorRef): ?>
                     <div class="mb-3">
                         <label class="form-label">Doctor's Discount (₹)</label>
-                        <input type="number" name="doctor_discount" class="form-control" step="0.01" min="0"
+                        <input type="number" name="doctor_discount" id="modalDoctorDiscountInput" class="form-control" step="0.01" min="0"
                                value="<?= $order['doctor_discount'] ?? 0 ?>">
                         <small class="text-muted">Reduces the doctor's commission on this order (if not already paid out).</small>
                     </div>
                     <?php endif; ?>
+                    <div id="modalDiscountError" class="alert alert-danger py-2 px-3 mb-0" style="display:none;font-size:12px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Total discount cannot be greater than the subtotal amount (<?= labMoney($order['total_amount']) ?>).
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check me-1"></i>Save Discount</button>
+                    <button type="submit" id="modalDiscountSaveBtn" class="btn btn-success"><i class="bi bi-check me-1"></i>Save Discount</button>
                 </div>
             </form>
         </div>
@@ -1009,6 +1013,49 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
         });
     }
 });
+
+// ── EDIT DISCOUNT MODAL: validate discount never exceeds subtotal ──
+(function () {
+    const subtotal    = <?= json_encode((float)$order['total_amount']) ?>;
+    const discEl      = document.getElementById('modalDiscountInput');
+    const docDiscEl   = document.getElementById('modalDoctorDiscountInput'); // may not exist for non-doctor referrals
+    const errorEl     = document.getElementById('modalDiscountError');
+    const saveBtn     = document.getElementById('modalDiscountSaveBtn');
+    const discountForm = document.getElementById('discountForm');
+
+    if (!discEl || !discountForm) return;
+
+    function isValid() {
+        const disc    = parseFloat(discEl.value) || 0;
+        const docDisc = docDiscEl ? (parseFloat(docDiscEl.value) || 0) : 0;
+        // Small epsilon guards against floating point rounding
+        return (disc + docDisc) <= subtotal + 0.0001;
+    }
+
+    function validateModal() {
+        const valid = isValid();
+        discEl.classList.toggle('is-invalid', !valid);
+        if (docDiscEl) docDiscEl.classList.toggle('is-invalid', !valid);
+        errorEl.style.display = valid ? 'none' : 'block';
+        saveBtn.disabled = !valid;
+        return valid;
+    }
+
+    discEl.addEventListener('input', validateModal);
+    if (docDiscEl) docDiscEl.addEventListener('input', validateModal);
+
+    discountForm.addEventListener('submit', function (e) {
+        if (!validateModal()) {
+            e.preventDefault();
+        }
+    });
+
+    // Validate immediately whenever the modal is opened
+    const discountModalEl = document.getElementById('discountModal');
+    if (discountModalEl) {
+        discountModalEl.addEventListener('shown.bs.modal', validateModal);
+    }
+})();
 </script>
 JS;
 ?>
