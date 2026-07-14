@@ -1191,11 +1191,31 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 document.querySelectorAll('.remove-test-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+        e.stopPropagation();
+
         const name = form.dataset.testName || 'this test';
+        const msg  = 'Remove "' + name + '" from this order? The order total, ' +
+                     'discount, and any doctor commission will be recalculated ' +
+                     'automatically. This cannot be undone.';
+
+        function doSubmit() {
+            // Prevent double-submits if the user double-clicks
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) btn.disabled = true;
+            HTMLFormElement.prototype.submit.call(form);
+        }
+
+        // If SweetAlert2 didn't load (blocked CDN, offline, ad-blocker, etc.)
+        // fall back to a native confirm() instead of silently doing nothing.
+        if (typeof Swal === 'undefined') {
+            if (window.confirm(msg)) doSubmit();
+            return;
+        }
+
         Swal.fire({
             icon: 'warning',
             title: 'Remove this test?',
-            text: 'Remove "' + name + '" from this order? The order total, discount, and any doctor commission will be recalculated automatically. This cannot be undone.',
+            text: msg,
             showCancelButton: true,
             confirmButtonText: 'Yes, remove it',
             cancelButtonText: 'Cancel',
@@ -1203,9 +1223,7 @@ document.querySelectorAll('.remove-test-form').forEach(function (form) {
             cancelButtonColor: '#64748b',
             reverseButtons: true
         }).then(function (result) {
-            if (result.isConfirmed) {
-                form.submit();
-            }
+            if (result.isConfirmed) doSubmit();
         });
     });
 });
