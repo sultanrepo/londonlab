@@ -25,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $referred_by = $doc['name'] ?? '';
     } elseif ($referral_type === 'external') {
         $referred_by = $external_ref_name;
+    } else {
+        $referred_by = 'Self';
     }
     if (!$name)  $errors[] = 'Patient name is required.';
     if (!$phone) $errors[] = 'Phone is required.';

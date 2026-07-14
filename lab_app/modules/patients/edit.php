@@ -29,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $referred_by = $doc['name'] ?? '';
     } elseif ($referral_type === 'external') {
         $referred_by = $external_ref_name;
+    } else {
+        $referred_by = 'Self';
     }
     if (!$name)  $errors[] = 'Name is required.';
     if (!$phone) $errors[] = 'Phone is required.';
@@ -45,7 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $patient = array_merge($patient, $_POST);
 }
 // If referred_by is set but no doctor_id and referral_type is 'self', it means external referral stored as self
-$selRef    = ($patient['referral_type'] === 'self' && !empty($patient['referred_by']) && !$patient['doctor_id'])
+// (exclude 'Self' itself — that's the default label for self/walk-in patients, not an external referrer's name)
+$selRef    = ($patient['referral_type'] === 'self' && !empty($patient['referred_by']) && strtolower(trim($patient['referred_by'])) !== 'self' && !$patient['doctor_id'])
              ? 'external'
              : ($patient['referral_type'] ?? 'self');
 $selDoc    = (int)($patient['doctor_id'] ?? 0);
