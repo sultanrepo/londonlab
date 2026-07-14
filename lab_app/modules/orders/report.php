@@ -478,7 +478,7 @@ foreach ($itemsByCategory as $catName => $catItems):
         <div class="gen-info">
             <span>Report: <?= labClean($order['order_no']) ?></span>
             <span>Generated: <?= date('d M Y, H:i') ?></span>
-            <span>By: <?= labClean($order['by_name'] ?? '—') ?></span>
+            <span>&copy; <?= date('Y') ?> LondonLab. All rights reserved.</span>
         </div>
 
     </div>
