@@ -1187,16 +1187,26 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
     }
 })();
 
-// ── REMOVE TEST: confirm before submitting ────────────────────
+// ── REMOVE TEST: SweetAlert2 confirmation before submitting ──
 document.querySelectorAll('.remove-test-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
+        e.preventDefault();
         const name = form.dataset.testName || 'this test';
-        const ok = confirm(
-            'Remove "' + name + '" from this order?\n\n' +
-            'The order total, discount, and any doctor commission will be ' +
-            'recalculated automatically. This cannot be undone.'
-        );
-        if (!ok) e.preventDefault();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Remove this test?',
+            text: 'Remove "' + name + '" from this order? The order total, discount, and any doctor commission will be recalculated automatically. This cannot be undone.',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, remove it',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            reverseButtons: true
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
     });
 });
 </script>
