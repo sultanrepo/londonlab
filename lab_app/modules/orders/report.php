@@ -197,7 +197,7 @@ table { width: 100%; border-collapse: collapse; }
 ══════════════════════════════════════════════════════ */
 @page {
     size: A4 portrait;
-    margin: 10mm 10mm 6mm 10mm; /* top right bottom left — bottom kept tighter so multi-row panels still fit one sheet */
+    margin: 4mm 3mm;
 }
 
 @media print {
@@ -207,8 +207,8 @@ table { width: 100%; border-collapse: collapse; }
     .no-print { display: none !important; }
 
     .cat-page {
-        width: 190mm;   /* 210mm page − 10mm left − 10mm right */
-        height: 281mm;  /* 297mm page − 10mm top − 6mm bottom */
+        width: 210mm;
+        height: 297mm;
         min-height: unset;
         max-width: unset;
         margin: 0;
