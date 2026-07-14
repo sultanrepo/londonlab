@@ -33,6 +33,11 @@ $payments  = $labDb->fetchAll("SELECT * FROM payments WHERE order_id=? ORDER BY 
 $totalPaid = array_sum(array_column($payments, 'amount'));
 $balance   = $order['net_amount'] - $totalPaid;
 
+// Can the current user remove a test from this order? Same permission tier as
+// editing the discount (a billing-affecting action), and only while the order
+// isn't already delivered/cancelled. At least one test must always remain.
+$canManageItems = labCanEdit() && !in_array($order['status'], ['delivered','cancelled']);
+
 // Load sub-parameters for each test item
 $subParamsMap = [];
 foreach ($items as $item) {
@@ -218,6 +223,112 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
     }
 }
 
+// ── REMOVE TEST FROM ORDER (recalculates total, discount, commission) ──
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['remove_test_item']) && labCanEdit()) {
+    labVerifyCsrf();
+
+    if (in_array($order['status'], ['delivered','cancelled'])) {
+        labSetFlash('error', 'Cannot modify tests on a delivered or cancelled order.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+
+    $itemId = (int)($_POST['item_id'] ?? 0);
+    $item   = $labDb->fetch("
+        SELECT oi.*, t.name as test_name
+        FROM order_items oi JOIN tests t ON oi.test_id = t.id
+        WHERE oi.id=? AND oi.order_id=?
+    ", [$itemId, $id]);
+
+    if (!$item) {
+        labSetFlash('error', 'Test item not found on this order.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+
+    $itemCount = (int)$labDb->fetch("SELECT COUNT(*) as c FROM order_items WHERE order_id=?", [$id])['c'];
+    if ($itemCount <= 1) {
+        labSetFlash('error', 'Cannot remove the only test on an order — cancel the whole order instead.');
+        header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+        exit;
+    }
+
+    $labDb->beginTransaction();
+    try {
+        // test_sub_results rows for this item cascade-delete automatically (FK ON DELETE CASCADE)
+        $labDb->execute("DELETE FROM order_items WHERE id=? AND order_id=?", [$itemId, $id]);
+
+        // Recompute the subtotal from what's actually left in the DB —
+        // never trust the old stored total_amount.
+        $newTotal = (float)($labDb->fetch(
+            "SELECT COALESCE(SUM(price),0) as t FROM order_items WHERE order_id=?", [$id]
+        )['t'] ?? 0);
+
+        $oldDiscount       = (float)$order['discount'];
+        $oldDoctorDiscount = (float)$order['doctor_discount'];
+        $oldTotalDiscount  = $oldDiscount + $oldDoctorDiscount;
+
+        // If the remaining subtotal is now smaller than the existing discount
+        // (e.g. the removed test was most of the order), scale BOTH discount
+        // components down proportionally — preserving their ratio — so the
+        // combined discount never exceeds the new subtotal. Same rule as the
+        // create/edit-discount validation, just applied automatically here.
+        if ($oldTotalDiscount > $newTotal + 0.0001 && $oldTotalDiscount > 0) {
+            $scale             = $newTotal / $oldTotalDiscount;
+            $newDiscount       = round($oldDiscount * $scale, 2);
+            $newDoctorDiscount = round($oldDoctorDiscount * $scale, 2);
+        } else {
+            $newDiscount       = $oldDiscount;
+            $newDoctorDiscount = $oldDoctorDiscount;
+        }
+
+        $newNet = max(0, $newTotal - $newDiscount - $newDoctorDiscount);
+
+        $labDb->execute(
+            "UPDATE orders SET total_amount=?, discount=?, doctor_discount=?, net_amount=? WHERE id=?",
+            [$newTotal, $newDiscount, $newDoctorDiscount, $newNet, $id]
+        );
+
+        // Keep the doctor's commission in sync with the new order total and
+        // doctor discount — but never silently rewrite a commission that's
+        // already been paid out (same rule as the discount-edit handler).
+        $isDoctorRef = ($order['referral_type'] === 'doctor' && $order['doctor_id']);
+        $commNote = '';
+        if ($isDoctorRef) {
+            $comm = $labDb->fetch("SELECT * FROM doctor_commissions WHERE order_id=?", [$id]);
+            if ($comm && $comm['status'] === 'pending') {
+                $baseComm = ($comm['commission_type'] === 'percentage')
+                    ? ($newTotal * $comm['commission_rate'] / 100)
+                    : $comm['commission_rate'];
+                $newCommAmt = max(0, round($baseComm - $newDoctorDiscount, 2));
+                $labDb->execute(
+                    "UPDATE doctor_commissions SET order_amount=?, commission_amount=? WHERE id=?",
+                    [$newTotal, $newCommAmt, $comm['id']]
+                );
+            } elseif ($comm && $comm['status'] !== 'pending') {
+                $commNote = ' Note: this doctor\'s commission was already '.$comm['status'].', so it was NOT recalculated — adjust it manually if needed.';
+            }
+        }
+
+        // Re-evaluate order status: removing the last pending test can complete the order.
+        $pendingCount = (int)$labDb->fetch(
+            "SELECT COUNT(*) as c FROM order_items WHERE order_id=? AND result_status='pending'", [$id]
+        )['c'];
+        if ($pendingCount == 0 && !in_array($order['status'], ['delivered','cancelled'])) {
+            $labDb->execute("UPDATE orders SET status='completed' WHERE id=?", [$id]);
+        }
+
+        $labDb->commit();
+        labSetFlash('success', '"'.$item['test_name'].'" removed. New order total: '.labMoney($newTotal).'.'.$commNote);
+    } catch (Exception $e) {
+        $labDb->rollback();
+        labSetFlash('error', 'Failed to remove test: '.$e->getMessage());
+    }
+
+    header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+    exit;
+}
+
 // ── UPDATE DISCOUNT (post-creation, e.g. after payment) ────────
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && labCanEdit()) {
     labVerifyCsrf();
@@ -383,6 +494,16 @@ $pageTitle = labClean($order['order_no']);
                                     data-bs-target="#modal_<?= $item['id'] ?>">
                                 <i class="bi bi-pencil-fill me-1"></i>Enter Result
                             </button>
+                            <?php endif; ?>
+                            <?php if ($canManageItems && count($items) > 1): ?>
+                            <form method="POST" class="d-inline remove-test-form" data-test-name="<?= labClean($item['test_name']) ?>">
+                                <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                                <input type="hidden" name="remove_test_item" value="1">
+                                <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove this test from the order">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </form>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -1065,6 +1186,19 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
         discountModalEl.addEventListener('shown.bs.modal', validateModal);
     }
 })();
+
+// ── REMOVE TEST: confirm before submitting ────────────────────
+document.querySelectorAll('.remove-test-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        const name = form.dataset.testName || 'this test';
+        const ok = confirm(
+            'Remove "' + name + '" from this order?\n\n' +
+            'The order total, discount, and any doctor commission will be ' +
+            'recalculated automatically. This cannot be undone.'
+        );
+        if (!ok) e.preventDefault();
+    });
+});
 </script>
 JS;
 ?>
