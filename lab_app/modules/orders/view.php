@@ -6,10 +6,12 @@ labRequireAccess('orders');
 $id    = (int)($_GET['id'] ?? 0);
 $order = $labDb->fetch("
     SELECT o.*, p.name as patient_name, p.patient_id as pid,
-           p.phone, p.gender, u.name as by_name
+           p.phone, p.gender, p.referral_type, p.doctor_id,
+           u.name as by_name, doc.name as ref_doctor_name
     FROM orders o
     JOIN patients p ON o.patient_id = p.id
     LEFT JOIN users u ON o.created_by = u.id
+    LEFT JOIN doctors doc ON p.doctor_id = doc.id
     WHERE o.id = ?
 ", [$id]);
 
@@ -214,6 +216,42 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['add_payment'])) {
         header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
         exit;
     }
+}
+
+// ── UPDATE DISCOUNT (post-creation, e.g. after payment) ────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && labCanEdit()) {
+    labVerifyCsrf();
+    $isDoctorRef = ($order['referral_type'] === 'doctor' && $order['doctor_id']);
+
+    $newDiscount = max(0, (float)($_POST['discount'] ?? 0));
+    // Doctor discount only ever applies to a tied-up doctor referral —
+    // self / external referrals get lab discount only, regardless of what's posted.
+    $newDoctorDiscount = $isDoctorRef ? max(0, (float)($_POST['doctor_discount'] ?? 0)) : 0;
+
+    $newNet = max(0, $order['total_amount'] - $newDiscount - $newDoctorDiscount);
+    $labDb->execute("UPDATE orders SET discount=?, doctor_discount=?, net_amount=? WHERE id=?",
+        [$newDiscount, $newDoctorDiscount, $newNet, $id]);
+
+    // Keep the doctor's commission in sync with the new doctor discount —
+    // but never silently rewrite a commission that's already been paid out.
+    if ($isDoctorRef) {
+        $comm = $labDb->fetch("SELECT * FROM doctor_commissions WHERE order_id=?", [$id]);
+        if ($comm && $comm['status'] === 'pending') {
+            $baseComm = ($comm['commission_type'] === 'percentage')
+                ? ($comm['order_amount'] * $comm['commission_rate'] / 100)
+                : $comm['commission_rate'];
+            $newCommAmt = max(0, $baseComm - $newDoctorDiscount);
+            $labDb->execute("UPDATE doctor_commissions SET commission_amount=? WHERE id=?", [$newCommAmt, $comm['id']]);
+        } elseif ($comm && $comm['status'] !== 'pending') {
+            labSetFlash('success', 'Discount updated. Note: this doctor\'s commission was already '.$comm['status'].', so it was NOT recalculated — adjust it manually if needed.');
+            header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+            exit;
+        }
+    }
+
+    labSetFlash('success', 'Discount updated successfully.');
+    header('Location: '.$_SERVER['PHP_SELF'].'?lab='.$slug.'&id='.$id);
+    exit;
 }
 
 // Auto-determine Normal / Abnormal from range string
@@ -455,7 +493,14 @@ $pageTitle = labClean($order['order_no']);
 
         <!-- Invoice Summary -->
         <div class="card mb-4">
-            <div class="card-header"><i class="bi bi-receipt"></i> Summary</div>
+            <div class="card-header justify-content-between">
+                <span><i class="bi bi-receipt"></i> Summary</span>
+                <?php if (labCanEdit()): ?>
+                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#discountModal">
+                    <i class="bi bi-tag me-1"></i>Edit Discount
+                </button>
+                <?php endif; ?>
+            </div>
             <div class="card-body">
                 <div class="d-flex justify-content-between py-2 border-bottom">
                     <span class="text-muted">Subtotal</span><strong><?= labMoney($order['total_amount']) ?></strong>
@@ -727,6 +772,51 @@ $pageTitle = labClean($order['order_no']);
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary"><i class="bi bi-check me-1"></i>Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Discount Modal -->
+<?php $isDoctorRef = ($order['referral_type'] === 'doctor' && $order['doctor_id']); ?>
+<div class="modal fade" id="discountModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= labCsrfToken() ?>">
+                <input type="hidden" name="update_discount" value="1">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Discount</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-light py-2 mb-3" style="font-size:12px;border:1px solid #e2e8f0;">
+                        Subtotal: <strong><?= labMoney($order['total_amount']) ?></strong>
+                        <?php if ($isDoctorRef): ?>
+                        <br>Referred by <strong><?= labClean($order['ref_doctor_name'] ?? 'tied-up doctor') ?></strong> — lab and doctor discount both apply.
+                        <?php else: ?>
+                        <br>Self / external referral — only lab discount applies.
+                        <?php endif; ?>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lab Discount (₹)</label>
+                        <input type="number" name="discount" class="form-control" step="0.01" min="0"
+                               value="<?= $order['discount'] ?? 0 ?>">
+                    </div>
+                    <?php if ($isDoctorRef): ?>
+                    <div class="mb-3">
+                        <label class="form-label">Doctor's Discount (₹)</label>
+                        <input type="number" name="doctor_discount" class="form-control" step="0.01" min="0"
+                               value="<?= $order['doctor_discount'] ?? 0 ?>">
+                        <small class="text-muted">Reduces the doctor's commission on this order (if not already paid out).</small>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check me-1"></i>Save Discount</button>
                 </div>
             </form>
         </div>
