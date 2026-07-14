@@ -230,5 +230,6 @@ tbody tr:last-child td{border-bottom:none}
         </div>
     </div>
     <div class="foot"><div><?= labClean($footer) ?></div><div>Generated: <?= date('d M Y H:i') ?></div></div>
+    <div class="foot"><div><?= labClean($footer) ?></div><div>Generated: <?= date('d M Y H:i') ?></div><div>&copy; <?= date('Y') ?> LondonLab. All rights reserved.</div></div>
 </div>
 </body></html>
