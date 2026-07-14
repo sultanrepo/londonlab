@@ -172,7 +172,7 @@ tbody tr:last-child td{border-bottom:none}
             </div>
             <div>
                 <div class="sec">Invoice Details</div>
-                <?php foreach (['Invoice Date'=>date('d M Y',strtotime($order['order_date'])),'Time'=>date('H:i',strtotime($order['order_date'])),'Created By'=>$order['by_name']??'—'] as $k=>$v): ?>
+                <?php foreach (['Invoice Date'=>date('d M Y',strtotime($order['order_date'])),'Time'=>date('H:i',strtotime($order['order_date']))] as $k=>$v): ?>
                 <div class="mr"><span class="mk"><?= $k ?></span><span class="mv"><?= labClean($v) ?></span></div>
                 <?php endforeach; ?>
             </div>
@@ -229,6 +229,6 @@ tbody tr:last-child td{border-bottom:none}
             </div>
         </div>
     </div>
-    <div class="foot"><div><?= labClean($footer) ?></div><div>Generated: <?= date('d M Y H:i') ?></div></div>
+    <div class="foot"><div><?= labClean($footer) ?></div><div>Generated: <?= date('d M Y H:i') ?></div><div>&copy; <?= date('Y') ?> LondonLab. All rights reserved.</div></div>
 </div>
 </body></html>
