@@ -382,6 +382,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && l
 
 // Auto-determine Normal / Abnormal from range string
 function autoStatus(string $value, string $range): string {
+    alert("Hello from autoStatus: value='$value', range='$range'");
     if ($value === '') return 'pending';
     if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false
         || stripos($range,'non-reactive')!==false || stripos($range,'no growth')!==false) return 'normal';
