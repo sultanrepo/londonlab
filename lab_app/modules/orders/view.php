@@ -1158,7 +1158,7 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 
 // ── EDIT DISCOUNT MODAL: validate discount never exceeds subtotal ──
 (function () {
-    const subtotal    = json_encode((float)$order['total_amount']);
+    const subtotal    = __LAB_JS_SUBTOTAL__;
     const discEl      = document.getElementById('modalDiscountInput');
     const docDiscEl   = document.getElementById('modalDoctorDiscountInput'); // may not exist for non-doctor referrals
     const errorEl     = document.getElementById('modalDiscountError');
@@ -1205,9 +1205,9 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
     // whether removing a test will leave the order overpaid — the real
     // calculation (with proportional discount scaling) always happens
     // authoritatively on the server; this is just a heads-up for the user.
-    const orderTotalAmount = <?= json_encode((float)$order['total_amount']) ?>;
-    const orderDiscountSum = <?= json_encode((float)$order['discount'] + (float)$order['doctor_discount']) ?>;
-    const orderTotalPaid   = <?= json_encode((float)$totalPaid) ?>;
+    const orderTotalAmount = __LAB_JS_ORDER_TOTAL__;
+    const orderDiscountSum = __LAB_JS_ORDER_DISCOUNT__;
+    const orderTotalPaid   = __LAB_JS_ORDER_PAID__;
 
     function fmtMoney(n) {
         return '₹' + n.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
@@ -1266,6 +1266,22 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 })();
 </script>
 JS;
+
+// The block above is a NOWDOC (<<<'JS') so PHP never executes inside it —
+// any <?= ?> written there would be dumped as literal, invalid JS and
+// silently break the *entire* script (calcStatus, live status badges,
+// formula runner, discount validation, remove-test confirm — all of it).
+// Substitute the real server values in afterwards instead.
+$extraJs = str_replace(
+    ['__LAB_JS_SUBTOTAL__', '__LAB_JS_ORDER_TOTAL__', '__LAB_JS_ORDER_DISCOUNT__', '__LAB_JS_ORDER_PAID__'],
+    [
+        json_encode((float)$order['total_amount']),
+        json_encode((float)$order['total_amount']),
+        json_encode((float)$order['discount'] + (float)$order['doctor_discount']),
+        json_encode((float)$totalPaid),
+    ],
+    $extraJs
+);
 ?>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
