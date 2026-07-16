@@ -388,9 +388,25 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_discount']) && l
     exit;
 }
 
+// Ranges are sometimes typed/pasted with an en dash "–", em dash "—", minus
+// sign "−", or the word "to" instead of a plain hyphen (e.g. copy-pasted from
+// Word/Excel/a reference chart, or from autocorrect on a phone). Every regex
+// below only recognises a plain "-", so an unnormalized range would silently
+// fail to match and autoStatus() would fall through to 'normal' for every
+// result. Normalize before anything else touches the range string.
+function normalizeRangeDashes(string $range): string {
+    // "10 to 20" -> "10-20" — only between two numbers, so unrelated text
+    // like "refer to physician" is left untouched.
+    $range = preg_replace('/([\d.])\s*to\s*([\d.])/i', '$1-$2', $range);
+    // en dash, em dash, minus sign -> plain hyphen
+    $range = str_replace(['–', '—', '−'], '-', $range);
+    return $range;
+}
+
 // Auto-determine Normal / Abnormal from range string
 function autoStatus(string $value, string $range): string {
     if ($value === '') return 'pending';
+    $range = normalizeRangeDashes($range);
     if ($range==='' || stripos($range,'see report')!==false || stripos($range,'negative')!==false
         || stripos($range,'non-reactive')!==false || stripos($range,'no growth')!==false) return 'normal';
     $num = (float)$value;
@@ -408,7 +424,7 @@ function autoStatus(string $value, string $range): string {
 // gender so autoStatus() gets a clean "0-20" instead of the whole string
 // (which would never match the dash regex and silently default to 'normal').
 function resolveRangeForGender(string $range, ?string $gender): string {
-    $range = trim($range);
+    $range = normalizeRangeDashes(trim($range));
     if ($range === '') return $range;
     $g = strtoupper(substr(trim((string)$gender), 0, 1)); // 'M' or 'F'
     if ($g !== 'M' && $g !== 'F') return $range;
@@ -1051,6 +1067,14 @@ $pageTitle = labClean($order['order_no']);
 $extraJs = <<<'JS'
 <script>
 // ── SHARED: parse range and return normal|abnormal|pending ────
+// Normalize en dash "–", em dash "—", minus sign "−", and "10 to 20" style
+// ranges to a plain hyphen — mirrors normalizeRangeDashes() in the PHP save
+// handler so the live preview badge always agrees with what gets saved.
+function normalizeRangeDashes(range) {
+    range = (range || '').replace(/([\d.])\s*to\s*([\d.])/gi, '$1-$2');
+    return range.replace(/[–—−]/g, '-');
+}
+
 function isQualitativeRange(range) {
     if (!range || range === '') return true;
     if (/see report|negative|non-reactive|no growth/i.test(range)) return true;
@@ -1060,6 +1084,7 @@ function isQualitativeRange(range) {
 
 function calcStatus(val, range) {
     if (val === '' || val === null || val === undefined) return 'pending';
+    range = normalizeRangeDashes(range);
     if (isQualitativeRange(range)) return 'normal'; // qualitative — no status logic
     const num = parseFloat(val);
     if (isNaN(num)) return 'pending'; // non-numeric in a numeric field
@@ -1083,7 +1108,7 @@ function updateBadge(itemId, paramId, val, range) {
 
 // ── SIMPLE TEST: resolve compound gender ranges, e.g. "0-15 (M) / 0-20 (F) mm/hr"
 function resolveRangeForGender(range, gender) {
-    range = (range || '').trim();
+    range = normalizeRangeDashes((range || '').trim());
     if (range === '') return range;
     const g = (gender || '').trim().charAt(0).toUpperCase(); // 'M' or 'F'
     if (g !== 'M' && g !== 'F') return range;

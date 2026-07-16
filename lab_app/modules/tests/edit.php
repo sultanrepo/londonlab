@@ -170,7 +170,7 @@ $editSubId = (int)($_GET['edit_sub'] ?? 0);
                 <?php if (!$isPanel): ?>
                 <div class="col-md-6">
                     <label class="form-label">Normal Range <small class="text-muted">(for simple tests)</small></label>
-                    <input type="text" name="normal_range" class="form-control" placeholder="e.g. 13.5–17.5"
+                    <input type="text" name="normal_range" class="form-control" placeholder="e.g. 13.5-17.5"
                            value="<?= labClean($test['normal_range'] ?? '') ?>">
                 </div>
                 <div class="col-md-3">
@@ -334,11 +334,11 @@ $editSubId = (int)($_GET['edit_sub'] ?? 0);
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Normal Range (Male)</label>
-                        <input type="text" name="normal_range_male" class="form-control" placeholder="e.g. 13.5–17.5">
+                        <input type="text" name="normal_range_male" class="form-control" placeholder="e.g. 13.5-17.5">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Normal Range (Female)</label>
-                        <input type="text" name="normal_range_female" class="form-control" placeholder="e.g. 12.0–15.5">
+                        <input type="text" name="normal_range_female" class="form-control" placeholder="e.g. 12.0-15.5">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Unit</label>
