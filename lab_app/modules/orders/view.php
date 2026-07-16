@@ -185,7 +185,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
 
     } else {
         // Simple test — single result
-        $val = trim($_POST['result_value'][$itemId] ?? '');
+        // Special case: Blood Group (BGABORH) has two separate fields
+        $testCode = $labDb->fetch("SELECT t.code FROM order_items oi JOIN tests t ON oi.test_id=t.id WHERE oi.id=?", [$itemId])['code'] ?? '';
+        if ($testCode === 'BGABORH') {
+            $abo = trim($_POST['bg_abo'][$itemId] ?? '');
+            $rh  = trim($_POST['bg_rh'][$itemId]  ?? '');
+            $val = ($abo !== '' && $rh !== '') ? 'ABO ' . $abo . ' | Rh ' . $rh : ($abo ?: $rh);
+        } else {
+            $val = trim($_POST['result_value'][$itemId] ?? '');
+        }
         $nt  = trim($_POST['result_notes'][$itemId] ?? '');
         // Status is auto-derived from the test's (gender-resolved) range —
         // never trust the client-submitted hidden field as the source of truth.
@@ -561,14 +569,29 @@ $pageTitle = labClean($order['order_no']);
 
                     <?php elseif (!$isPanel && $item['result_value'] && $item['result_value'] !== 'pending'): ?>
                     <!-- Simple test with result -->
-                    <div class="px-4 py-3 d-flex gap-4" style="font-size:13px;">
+                    <div class="px-4 py-3 d-flex gap-4 flex-wrap" style="font-size:13px;">
+                        <?php if ($item['code'] !== 'BGABORH'): ?>
                         <div>
                             <span class="text-muted">Normal Range: </span>
                             <span><?= labClean($item['normal_range']??'—') ?> <?= labClean($item['unit']??'') ?></span>
                         </div>
+                        <?php endif; ?>
                         <div>
                             <span class="text-muted">Result: </span>
+                            <?php if ($item['code'] === 'BGABORH'): ?>
+                            <?php
+                                // Parse stored "ABO B | Rh POSITIVE" back into two lines
+                                $bgParts = explode(' | ', $item['result_value']);
+                                $bgAbo = $bgParts[0] ?? $item['result_value'];
+                                $bgRh  = $bgParts[1] ?? '';
+                            ?>
+                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block"><?= labClean($bgAbo) ?></span>
+                            <?php if ($bgRh): ?>
+                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block mt-1"><?= labClean($bgRh) ?></span>
+                            <?php endif; ?>
+                            <?php else: ?>
                             <span class="result-status-<?= $item['result_status'] ?> fs-6"><?= labClean($item['result_value']) ?></span>
+                            <?php endif; ?>
                         </div>
                         <?php if ($item['result_notes']): ?>
                         <div><span class="text-muted">Notes: </span><?= labClean($item['result_notes']) ?></div>
@@ -808,6 +831,53 @@ $pageTitle = labClean($order['order_no']);
                     <?php else: ?>
                     <!-- ── SIMPLE TEST: single result ── -->
                     <div class="p-2">
+
+                        <?php if ($item['code'] === 'BGABORH'):
+                            // Parse existing stored value back into ABO and Rh parts
+                            $bgStored = $item['result_value'] ?? '';
+                            $bgParts  = explode(' | ', $bgStored);
+                            $bgAboVal = '';
+                            $bgRhVal  = '';
+                            if (count($bgParts) === 2) {
+                                $bgAboVal = preg_replace('/^ABO\s*/i', '', $bgParts[0]);
+                                $bgRhVal  = preg_replace('/^Rh\s*/i',  '', $bgParts[1]);
+                            }
+                        ?>
+                        <!-- ── BLOOD GROUP: two separate fields, no Normal Range ── -->
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold">ABO Blood Group</label>
+                                <select name="bg_abo[<?= $item['id'] ?>]"
+                                        class="form-select form-select-lg">
+                                    <option value="">— Select —</option>
+                                    <?php foreach (['A','B','AB','O'] as $aboOpt): ?>
+                                    <option value="<?= $aboOpt ?>" <?= $bgAboVal===$aboOpt?'selected':'' ?>><?= $aboOpt ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Rh Factor</label>
+                                <select name="bg_rh[<?= $item['id'] ?>]"
+                                        class="form-select form-select-lg">
+                                    <option value="">— Select —</option>
+                                    <option value="POSITIVE" <?= $bgRhVal==='POSITIVE'?'selected':'' ?>>Positive</option>
+                                    <option value="NEGATIVE" <?= $bgRhVal==='NEGATIVE'?'selected':'' ?>>Negative</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Notes</label>
+                                <input type="text"
+                                       name="result_notes[<?= $item['id'] ?>]"
+                                       class="form-control form-control-lg"
+                                       value="<?= labClean($item['result_notes']??'') ?>"
+                                       placeholder="Optional">
+                            </div>
+                        </div>
+                        <input type="hidden" name="result_status[<?= $item['id'] ?>]" value="normal">
+
+                        <?php else: ?>
+                        <!-- ── ALL OTHER SIMPLE TESTS ── -->
+                        <?php if (trim($item['normal_range']??'') && trim($item['normal_range']) !== '—'): ?>
                         <div class="alert alert-light py-2 mb-3" style="font-size:13px;border:1px solid #e2e8f0;">
                             <strong>Normal Range:</strong>
                             <?= labClean($item['normal_range']??'—') ?>
@@ -815,6 +885,7 @@ $pageTitle = labClean($order['order_no']);
                             &nbsp;<?= labClean($item['unit']) ?>
                             <?php endif; ?>
                         </div>
+                        <?php endif; ?>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Result Value</label>
@@ -861,6 +932,8 @@ $pageTitle = labClean($order['order_no']);
                                        placeholder="Optional">
                             </div>
                         </div>
+                        <?php endif; ?>
+
                     </div>
                     <?php endif; ?>
 

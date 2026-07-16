@@ -398,6 +398,7 @@ foreach ($itemsByCategory as $catName => $catItems):
             <?php else: ?>
             <!-- Simple test: single result row -->
             <div class="simple-result">
+                <?php if ($item['code'] !== 'BGABORH'): ?>
                 <div>
                     <div class="sr-label">Normal Range</div>
                     <div>
@@ -407,13 +408,25 @@ foreach ($itemsByCategory as $catName => $catItems):
                         <?php endif; ?>
                     </div>
                 </div>
+                <?php endif; ?>
                 <div>
                     <div class="sr-label">Result</div>
                     <div>
                         <?php if ($item['result_value'] && $item['result_value'] !== 'pending'): ?>
+                        <?php if ($item['code'] === 'BGABORH'):
+                            $bgParts = explode(' | ', $item['result_value']);
+                            $bgAbo = $bgParts[0] ?? $item['result_value'];
+                            $bgRh  = $bgParts[1] ?? '';
+                        ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;"><?= labClean($bgAbo) ?></span>
+                        <?php if ($bgRh): ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;margin-top:4px;"><?= labClean($bgRh) ?></span>
+                        <?php endif; ?>
+                        <?php else: ?>
                         <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
                             <?= labClean($item['result_value']) ?>
                         </span>
+                        <?php endif; ?>
                         <?php else: ?>
                         <span style="color:#94a3b8;">Not entered</span>
                         <?php endif; ?>
