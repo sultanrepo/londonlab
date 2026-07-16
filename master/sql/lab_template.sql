@@ -386,7 +386,8 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@cbc2_id, 'Mean Platelet Volume (MPV)',  'MPV',      '6.5-12.0',   '6.5-12.0',   'fL',       16),
 (@cbc2_id, 'Platelet Distribution Width (PDW)', 'PDW', '9.6-15.2',  '9.6-15.2',   'fL',       17),
 (@cbc2_id, 'Platelet to Large Cell Ratio (PLCR)', 'PLCR', '19.7-42.4', '19.7-42.4', '%',       18),
-(@cbc2_id, 'Plateletcrit (PCT)',          'PCT',      '0.19-0.39',  '0.19-0.39',  '%',        19);
+(@cbc2_id, 'Plateletcrit (PCT)',          'PCT',      '0.19-0.39',  '0.19-0.39',  '%',        19),
+(@cbc2_id, 'Haemoglobin %',               'HB%',      '91-119',     '84-108.5',   '%',        20);
 
 -- ── Bilirubin (Total & Direct) ────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
@@ -433,7 +434,8 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@kft2_id, 'Serum Creatinine', 'CREAT', '0.7-1.3', '0.6-1.1', 'mg/dL', 2),
 (@kft2_id, 'Uric Acid',        'UA',    '3.4-7.0', '2.4-6.0', 'mg/dL', 3),
 (@kft2_id, 'Calcium',          'Ca',    '8.5-10.5','8.5-10.5','mg/dL', 4),
-(@kft2_id, 'Phosphorus',       'Phos',  '2.5-4.5', '2.5-4.5', 'mg/dL', 5);
+(@kft2_id, 'Phosphorus',       'Phos',  '2.5-4.5', '2.5-4.5', 'mg/dL', 5),
+(@kft2_id, 'BUN',              'BUN',   '6-21',    '6-21',    'mg/dL', 6);
 
 -- ── KFT With Electrolyte ──────────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
