@@ -446,7 +446,8 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@kftel_id, 'Phosphorus',       'Phos',  '2.5-4.5',  '2.5-4.5',  'mg/dL', 5),
 (@kftel_id, 'Sodium (Na+)',     'Na',    '135-145',  '135-145',  'mEq/L', 6),
 (@kftel_id, 'Potassium (K+)',   'K',     '3.5-5.0',  '3.5-5.0',  'mEq/L', 7),
-(@kftel_id, 'Chloride (Cl-)',   'Cl',    '98-106',   '98-106',   'mEq/L', 8);
+(@kftel_id, 'Chloride (Cl-)',   'Cl',    '98-106',   '98-106',   'mEq/L', 8),
+(@kftel_id, 'BUN',              'BUN',   '6-21',     '6-21',     'mg/dL', 9);
 
 -- ── Lipid Profile ──────────────────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES

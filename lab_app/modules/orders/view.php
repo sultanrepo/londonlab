@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
         }
 
         // ── KFT Formulas ──────────────────────────────────────
-        if ($testCode === 'KFT2') {
+        if ($testCode === 'KFT2' || $testCode === 'KFTELEC') {
             // BUN = Blood Urea × 0.467
             $urea = $getVal('UREA');
             if ($urea !== null) {
@@ -1060,7 +1060,7 @@ function runFormulas(itemId, testCode) {
         if (!isNaN(hgb)) setCalcField(itemId, 'HB%', hgb * 7);
     }
 
-    if (testCode === 'KFT2') {
+    if (testCode === 'KFT2' || testCode === 'KFTELEC') {
         // BUN = Blood Urea (UREA) × 0.467
         const urea = getInputVal(itemId, 'UREA');
         if (!isNaN(urea)) setCalcField(itemId, 'BUN', urea * 0.467);
@@ -1097,6 +1097,7 @@ function runFormulas(itemId, testCode) {
 const calcFields = {
     'CBC2':   ['HB%'],
     'KFT2':   ['BUN'],
+    'KFTELEC':['BUN'],
     'LFT2':   ['I.BILI', 'GLOB', 'A:G'],
     'PTINR2': ['PT RATIO']
 };
