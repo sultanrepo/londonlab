@@ -418,10 +418,13 @@ foreach ($itemsByCategory as $catName => $catItems):
                             $bgAbo = $bgParts[0] ?? $item['result_value'];
                             $bgRh  = $bgParts[1] ?? '';
                         ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;"><?= labClean($bgAbo) ?></span>
-                        <?php if ($bgRh): ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;margin-top:4px;"><?= labClean($bgRh) ?></span>
-                        <?php endif; ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">
+                            <?= labClean($bgAbo) ?>
+                            <?php if ($bgRh): ?>
+                            &nbsp;&nbsp;—&nbsp;&nbsp;
+                            <?= labClean($bgRh) ?>
+                            <?php endif; ?>
+                        </span>
                         <?php else: ?>
                         <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
                             <?= labClean($item['result_value']) ?>

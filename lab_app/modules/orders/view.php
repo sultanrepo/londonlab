@@ -585,10 +585,13 @@ $pageTitle = labClean($order['order_no']);
                                 $bgAbo = $bgParts[0] ?? $item['result_value'];
                                 $bgRh  = $bgParts[1] ?? '';
                             ?>
-                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block"><?= labClean($bgAbo) ?></span>
-                            <?php if ($bgRh): ?>
-                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block mt-1"><?= labClean($bgRh) ?></span>
-                            <?php endif; ?>
+                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block">
+                                <?= labClean($bgAbo) ?>
+                                <?php if ($bgRh): ?>
+                                &nbsp;&nbsp;—&nbsp;&nbsp;
+                                <?= labClean($bgRh) ?>
+                                <?php endif; ?>
+                            </span>
                             <?php else: ?>
                             <span class="result-status-<?= $item['result_status'] ?> fs-6"><?= labClean($item['result_value']) ?></span>
                             <?php endif; ?>
