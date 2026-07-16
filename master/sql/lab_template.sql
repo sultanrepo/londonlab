@@ -273,7 +273,10 @@ INSERT INTO tests (category_id,code,name,price,normal_range,unit,turnaround_hour
 (@cat_bio,'KFT2',     'K.F.T. (Kidney Function Test)',   700,'See report','Multiple',6),
 (@cat_bio,'KFTELEC',  'K.F.T. With Electrolyte',        1200,'See report','Multiple',8),
 (@cat_bio,'LIPID2',   'Lipid Profile',                   800,'See report','Multiple',6),
-(@cat_bio,'URICACID', 'Uric Acid',                       300,'3.4-7.0 (M) / 2.4-6.0 (F)','mg/dL',4);
+(@cat_bio,'URICACID', 'Uric Acid',                       300,'3.4-7.0 (M) / 2.4-6.0 (F)','mg/dL',4),
+(@cat_bio,'BSR',      'Blood Sugar Randon',                50,'70-140','mg/dL',1),
+(@cat_bio,'BSF',      'Blood Sugar Fasting',                50,'70-110','mg/dL',1),
+(@cat_bio,'BSPP',     'Blood Sugar Post-Prandial',          50,'70-140','mg/dL',1);
 
 -- ============================================================
 -- 4. TESTS — IMMUNO-SEROLOGY
@@ -373,13 +376,17 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@cbc2_id, 'Basophils',                   'BASO',     '00-02',      '00-02',      '%',        6),
 (@cbc2_id, 'Haemoglobin',                 'HGB',      '13.0-17.0',  '12.0-15.5',  'g/dL',     7),
 (@cbc2_id, 'RBC Count',                   'RBC',      '4.5-5.5',    '4.0-5.0',    'mill/µL',  8),
-(@cbc2_id, 'Haematocrit (HCT)',           'HCT',      '40-50',      '36-46',      '%',        9),
-(@cbc2_id, 'MCV',                         'MCV',      '83-101',     '83-101',     'fL',       10),
-(@cbc2_id, 'MCH',                         'MCH',      '27-32',      '27-32',      'pg',       11),
-(@cbc2_id, 'MCHC',                        'MCHC',     '31.5-34.5',  '31.5-34.5',  'g/dL',     12),
-(@cbc2_id, 'RDW-CV',                      'RDW-CV',   '11.6-14.0',  '11.6-14.0',  '%',        13),
-(@cbc2_id, 'Platelet Count',              'PLT',      '1.5-4.5',    '1.5-4.5',    'lakh/cumm',14),
-(@cbc2_id, 'MPV',                         'MPV',      '6.5-12.0',   '6.5-12.0',   'fL',       15);
+(@cbc2_id, 'Haematocrit (PCV)',           'PCV',      '40-50',      '36-46',      '%',        9),
+(@cbc2_id, 'Mean Corpuscular Volume (MCV)', 'MCV',    '83-101',     '83-101',     'fL',       10),
+(@cbc2_id, 'Mean Corpuscular Hemoglobin (MCH)', 'MCH', '27-32',     '27.0-32.0',  'pg',       11),
+(@cbc2_id, 'Mean Corp. Hemo. Conc (MCHC)', 'MCHC',    '31.5-34.5',  '31.5-34.5',  'g/dL',     12),
+(@cbc2_id, 'Red Cell Distribution Width - SD (RDW-SD)', 'RDW-SD', '39.0-46.0', '39.0-46.0', 'fL', 13),
+(@cbc2_id, 'Red Cell Distribution Width (RDW-CV)', 'RDW-CV', '11.6-14.0', '11.6-14.0', '%',  14),
+(@cbc2_id, 'Platelet Count',              'PLT',      '150-410',    '150-410',    'lakh/cumm',15),
+(@cbc2_id, 'Mean Platelet Volume (MPV)',  'MPV',      '6.5-12.0',   '6.5-12.0',   'fL',       16),
+(@cbc2_id, 'Platelet Distribution Width (PDW)', 'PDW', '9.6-15.2',  '9.6-15.2',   'fL',       17),
+(@cbc2_id, 'Platelet to Large Cell Ratio (PLCR)', 'PLCR', '19.7-42.4', '19.7-42.4', '%',       18),
+(@cbc2_id, 'Plateletcrit (PCT)',          'PCT',      '0.19-0.39',  '0.19-0.39',  '%',        19);
 
 -- ── Bilirubin (Total & Direct) ────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES

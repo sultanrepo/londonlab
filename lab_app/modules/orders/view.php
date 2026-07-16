@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
         };
 
         // ── CBC Formulas ──────────────────────────────────────
-        if ($testCode === 'CBC') {
+        if ($testCode === 'CBC2') {
             // HB% = Haemoglobin × 7
             $hgb = $getVal('HGB');
             if ($hgb !== null) {
@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
         }
 
         // ── KFT Formulas ──────────────────────────────────────
-        if ($testCode === 'KFT') {
+        if ($testCode === 'KFT2') {
             // BUN = Blood Urea × 0.467
             $urea = $getVal('UREA');
             if ($urea !== null) {
@@ -144,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
         }
 
         // ── LFT Formulas ──────────────────────────────────────
-        if ($testCode === 'LFT') {
+        if ($testCode === 'LFT2') {
             // Indirect Bilirubin = Total Bilirubin − Direct Bilirubin
             $tbili = $getVal('T.BILI');
             $dbili = $getVal('D.BILI');
@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_results'])) {
         }
 
         // ── PT/INR Formulas ───────────────────────────────────
-        if ($testCode === 'PTINR') {
+        if ($testCode === 'PTINR2') {
             // Prothrombin Ratio = PT Test ÷ Control Plasma
             $ptTest  = $getVal('PT TEST');
             $control = $getVal('CONTROL');
@@ -1054,19 +1054,19 @@ function setCalcField(itemId, shortName, value) {
 
 // ── FORMULA RUNNER: runs all applicable formulas for a test ──
 function runFormulas(itemId, testCode) {
-    if (testCode === 'CBC') {
+    if (testCode === 'CBC2') {
         // HB% = Haemoglobin (HGB) × 7
         const hgb = getInputVal(itemId, 'HGB');
         if (!isNaN(hgb)) setCalcField(itemId, 'HB%', hgb * 7);
     }
 
-    if (testCode === 'KFT') {
+    if (testCode === 'KFT2') {
         // BUN = Blood Urea (UREA) × 0.467
         const urea = getInputVal(itemId, 'UREA');
         if (!isNaN(urea)) setCalcField(itemId, 'BUN', urea * 0.467);
     }
 
-    if (testCode === 'LFT') {
+    if (testCode === 'LFT2') {
         // Indirect Bilirubin = Total Bilirubin − Direct Bilirubin
         const tbili = getInputVal(itemId, 'T.BILI');
         const dbili = getInputVal(itemId, 'D.BILI');
@@ -1083,7 +1083,7 @@ function runFormulas(itemId, testCode) {
         }
     }
 
-    if (testCode === 'PTINR') {
+    if (testCode === 'PTINR2') {
         // Prothrombin Ratio = PT Test ÷ Control Plasma
         const ptTest  = getInputVal(itemId, 'PT TEST');
         const control = getInputVal(itemId, 'CONTROL');
@@ -1095,10 +1095,10 @@ function runFormulas(itemId, testCode) {
 
 // ── MARK CALCULATED FIELDS AS READ-ONLY WITH TOOLTIP ─────────
 const calcFields = {
-    'CBC':   ['HB%'],
-    'KFT':   ['BUN'],
-    'LFT':   ['I.BILI', 'GLOB', 'A:G'],
-    'PTINR': ['PT RATIO']
+    'CBC2':   ['HB%'],
+    'KFT2':   ['BUN'],
+    'LFT2':   ['I.BILI', 'GLOB', 'A:G'],
+    'PTINR2': ['PT RATIO']
 };
 
 document.addEventListener('DOMContentLoaded', function() {
