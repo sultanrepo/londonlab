@@ -232,7 +232,7 @@ INSERT INTO tests (category_id,code,name,price,normal_range,unit,turnaround_hour
 (@cat_haem,'TLCDLC',   'TLC, DLC',                       200,'Multiple','Multiple',4),
 (@cat_haem,'HB2',      'Haemoglobin (HB)',               100,'13.0-17.0 (M) / 12.0-15.5 (F)','g/dL',2),
 (@cat_haem,'ESR2',     'Erythrocyte Sedimentation Rate',  100,'0-15 (M) / 0-20 (F)','mm/hr',4),
-(@cat_haem,'GBPPS',    'GBP / Peripheral Smear',          300,'See report','—',6),
+(@cat_haem,'GBPPS',    'GBP / Peripheral Smear',          300,'See report','—',2),
 (@cat_haem,'CBC2',     'Complete Blood Count (CBC)',      400,'See report','Multiple',4),
 (@cat_haem,'RBCCNT',   'RBC Count',                       200,'4.5-5.5 (M) / 4.0-5.0 (F)','mill/µL',2),
 (@cat_haem,'PLTCNT',   'Platelet Count',                  250,'1.5-4.5','lakh/cumm',2),
@@ -270,8 +270,8 @@ INSERT INTO tests (category_id,code,name,price,normal_range,unit,turnaround_hour
 (@cat_bio,'PTINR2',   'Prothrombin Time (PT, INR)',      600,'See report','Multiple',6),
 (@cat_bio,'APTT2',    'APTT',                            700,'25-35','sec',6),
 (@cat_bio,'LFT2',     'L.F.T. (Liver Function Test)',    800,'See report','Multiple',6),
-(@cat_bio,'KFT2',     'K.F.T. (Kidney Function Test)',   700,'See report','Multiple',6),
-(@cat_bio,'KFTELEC',  'K.F.T. With Electrolyte',        1200,'See report','Multiple',8),
+(@cat_bio,'KFT2',     'K.F.T. (Kidney Function Test)',   700,'Multiple','Multiple',2),
+(@cat_bio,'KFTELEC',  'K.F.T. With Electrolyte',        1200,'Multiple','Multiple',4),
 (@cat_bio,'LIPID2',   'Lipid Profile',                   800,'See report','Multiple',6),
 (@cat_bio,'URICACID', 'Uric Acid',                       300,'3.4-7.0 (M) / 2.4-6.0 (F)','mg/dL',4),
 (@cat_bio,'BSR',      'Blood Sugar Randon',                50,'70-140','mg/dL',1),
@@ -342,6 +342,7 @@ INSERT INTO tests (category_id,code,name,price,normal_range,unit,turnaround_hour
 --  per the lab_template.sql fix.)
 -- ============================================================
 SET @tlcdlc_id = (SELECT id FROM tests WHERE code='TLCDLC');
+SET @gbpps_id  = (SELECT id FROM tests WHERE code='GBPPS');
 SET @cbc2_id   = (SELECT id FROM tests WHERE code='CBC2');
 SET @bilitd_id = (SELECT id FROM tests WHERE code='BILITD');
 SET @tpagr_id  = (SELECT id FROM tests WHERE code='TPAGR');
@@ -365,6 +366,16 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 (@tlcdlc_id, 'Eosinophils',                 'EOS',     '01-06',      '01-06',      '%',     4),
 (@tlcdlc_id, 'Monocytes',                   'MONO',    '02-10',      '02-10',      '%',     5),
 (@tlcdlc_id, 'Basophils',                   'BASO',    '00-02',      '00-02',      '%',     6);
+
+-- ── GBP / Peripheral Smear ────────────────────────────────
+INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
+(@gbpps_id, 'Total Count of WBC', 'WBC',  '4000-11000', '4000-11000', '/cmm',  0),
+(@gbpps_id, 'Polymorphs',         'PLYM', '55-70',      '55-70',      '%',     1),
+(@gbpps_id, 'Lymphocytes',        'LYMP', '25-30',      '25-30',      '%',     2),
+(@gbpps_id, 'Eosinophils',        'EOSI', '02-06',      '02-06',      '%',     3),
+(@gbpps_id, 'Monocytes',          'MONO', '01-06',      '01-06',      '%',     4),
+(@gbpps_id, 'Basophils',          'BASO', '00-01',      '00-01',      '%',     5),
+(@gbpps_id, 'Haemoglobin',        'HGB',  '11-15',      '11-15',      'g/dL',  6);
 
 -- ── CBC (Complete Blood Count) ────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
@@ -431,23 +442,23 @@ INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_ran
 -- ── KFT (Kidney Function Test) ────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
 (@kft2_id, 'Blood Urea',       'UREA',  '15-40',   '15-40',   'mg/dL', 1),
-(@kft2_id, 'Serum Creatinine', 'CREAT', '0.7-1.3', '0.6-1.1', 'mg/dL', 2),
-(@kft2_id, 'Uric Acid',        'UA',    '3.4-7.0', '2.4-6.0', 'mg/dL', 3),
+(@kft2_id, 'BUN',              'BUN',   '6-21',    '6-21',    'mg/dL', 2),
+(@kft2_id, 'Serum Creatinine', 'CREAT', '0.7-1.3', '0.6-1.1', 'mg/dL', 3),
+(@kft2_id, 'Uric Acid',        'UA',    '3.4-7.0', '2.4-6.0', 'mg/dL', 4),
 (@kft2_id, 'Calcium',          'Ca',    '8.5-10.5','8.5-10.5','mg/dL', 4),
-(@kft2_id, 'Phosphorus',       'Phos',  '2.5-4.5', '2.5-4.5', 'mg/dL', 5),
-(@kft2_id, 'BUN',              'BUN',   '6-21',    '6-21',    'mg/dL', 6);
+(@kft2_id, 'Phosphorus',       'Phos',  '2.5-4.5', '2.5-4.5', 'mg/dL', 5);
 
 -- ── KFT With Electrolyte ──────────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
 (@kftel_id, 'Blood Urea',       'UREA',  '15-40',    '15-40',    'mg/dL', 1),
 (@kftel_id, 'Serum Creatinine', 'CREAT', '0.7-1.3',  '0.6-1.1',  'mg/dL', 2),
+(@kftel_id, 'BUN',              'BUN',   '6-21',     '6-21',     'mg/dL', 2),
 (@kftel_id, 'Uric Acid',        'UA',    '3.4-7.0',  '2.4-6.0',  'mg/dL', 3),
 (@kftel_id, 'Calcium',          'Ca',    '8.5-10.5', '8.5-10.5', 'mg/dL', 4),
 (@kftel_id, 'Phosphorus',       'Phos',  '2.5-4.5',  '2.5-4.5',  'mg/dL', 5),
 (@kftel_id, 'Sodium (Na+)',     'Na',    '135-145',  '135-145',  'mEq/L', 6),
 (@kftel_id, 'Potassium (K+)',   'K',     '3.5-5.0',  '3.5-5.0',  'mEq/L', 7),
-(@kftel_id, 'Chloride (Cl-)',   'Cl',    '98-106',   '98-106',   'mEq/L', 8),
-(@kftel_id, 'BUN',              'BUN',   '6-21',     '6-21',     'mg/dL', 9);
+(@kftel_id, 'Chloride (Cl-)',   'Cl',    '98-106',   '98-106',   'mEq/L', 8);
 
 -- ── Lipid Profile ──────────────────────────────────────────
 INSERT INTO test_sub_parameters (test_id, parameter_name, short_name, normal_range_male, normal_range_female, unit, sort_order) VALUES
