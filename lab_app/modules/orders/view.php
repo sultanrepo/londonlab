@@ -586,12 +586,13 @@ $pageTitle = labClean($order['order_no']);
                                 $bgRh  = $bgParts[1] ?? '';
                             ?>
                             <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block">
-                                <?= labClean($bgAbo) ?>
-                                <?php if ($bgRh): ?>
-                                &nbsp;&nbsp;—&nbsp;&nbsp;
-                                <?= labClean($bgRh) ?>
-                                <?php endif; ?>
+                                ABO &nbsp;–&nbsp; <?= labClean(preg_replace('/^ABO\s*/i','',$bgAbo)) ?>
                             </span>
+                            <?php if ($bgRh): ?>
+                            <span class="result-status-<?= $item['result_status'] ?> fs-6 d-block mt-2">
+                                Rh &nbsp;–&nbsp; <?= labClean(preg_replace('/^Rh\s*/i','',$bgRh)) ?>
+                            </span>
+                            <?php endif; ?>
                             <?php else: ?>
                             <span class="result-status-<?= $item['result_status'] ?> fs-6"><?= labClean($item['result_value']) ?></span>
                             <?php endif; ?>

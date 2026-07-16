@@ -419,12 +419,13 @@ foreach ($itemsByCategory as $catName => $catItems):
                             $bgRh  = $bgParts[1] ?? '';
                         ?>
                         <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">
-                            <?= labClean($bgAbo) ?>
-                            <?php if ($bgRh): ?>
-                            &nbsp;&nbsp;—&nbsp;&nbsp;
-                            <?= labClean($bgRh) ?>
-                            <?php endif; ?>
+                            ABO &nbsp;–&nbsp; <?= labClean(preg_replace('/^ABO\s*/i','',$bgAbo)) ?>
                         </span>
+                        <?php if ($bgRh): ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;margin-top:6px;">
+                            Rh &nbsp;–&nbsp; <?= labClean(preg_replace('/^Rh\s*/i','',$bgRh)) ?>
+                        </span>
+                        <?php endif; ?>
                         <?php else: ?>
                         <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
                             <?= labClean($item['result_value']) ?>
