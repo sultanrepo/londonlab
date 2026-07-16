@@ -1267,10 +1267,10 @@ document.querySelectorAll('.simple-result-input').forEach(function(input) {
 </script>
 JS;
 
-// The block above is a NOWDOC (<<<'JS') so PHP never executes inside it —
-// any <?= ?> written there would be dumped as literal, invalid JS and
-// silently break the *entire* script (calcStatus, live status badges,
-// formula runner, discount validation, remove-test confirm — all of it).
+// The block above is a NOWDOC so PHP never executes inside it -- embedded
+// PHP echo shortcuts written there would be dumped as literal, invalid JS
+// and silently break the entire script (calcStatus, live status badges,
+// formula runner, discount validation, remove-test confirm -- all of it).
 // Substitute the real server values in afterwards instead.
 $extraJs = str_replace(
     ['__LAB_JS_SUBTOTAL__', '__LAB_JS_ORDER_TOTAL__', '__LAB_JS_ORDER_DISCOUNT__', '__LAB_JS_ORDER_PAID__'],
