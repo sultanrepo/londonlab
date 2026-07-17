@@ -61,7 +61,52 @@ $footer     = labGetSetting($labDb, 'report_footer', 'Results are for clinical g
 
 $age = $order['age'] ? $order['age'] : null;
 
-$totalCategories = count($itemsByCategory);
+// ── Paginate: a category's tests may not all fit on one A4 page.
+//    Each .cat-page is a fixed 297mm-tall, overflow:hidden box, so
+//    without this a category taller than one page (e.g. CBC's 19-row
+//    panel plus another test) simply had its overflow clipped instead
+//    of continuing onto a next page. Estimate each test-block's height
+//    in "row units" and greedily pack them into as many pages as needed.
+function reportBlockCost($item, $subParamsMap) {
+    if (!empty($subParamsMap[$item['item_id']])) {
+        // Panel test: block header + column header + one row per sub-parameter
+        return 1.3 + count($subParamsMap[$item['item_id']]);
+    }
+    // Simple single-value test block
+    return 2.2;
+}
+
+$REPORT_PAGE_BUDGET = 21; // calibrated so a 19-row panel (e.g. CBC) just fills one page
+
+$pages = [];
+foreach ($itemsByCategory as $catName => $catItems) {
+    $chunks  = [];
+    $current = [];
+    $currentCost = 0;
+    foreach ($catItems as $item) {
+        $cost = reportBlockCost($item, $subParamsMap);
+        if (!empty($current) && ($currentCost + $cost) > $REPORT_PAGE_BUDGET) {
+            $chunks[] = $current;
+            $current  = [];
+            $currentCost = 0;
+        }
+        $current[] = $item;
+        $currentCost += $cost;
+    }
+    if (!empty($current)) $chunks[] = $current;
+
+    $totalParts = count($chunks);
+    foreach ($chunks as $idx => $chunkItems) {
+        $pages[] = [
+            'cat'      => $catName,
+            'items'    => $chunkItems,
+            'catTotal' => count($catItems),
+            'part'     => $idx + 1,
+            'parts'    => $totalParts,
+        ];
+    }
+}
+$totalCategories = count($pages);
 
 // Build patient strip data once, reused in every header
 $strip = [
@@ -277,8 +322,10 @@ table { width: 100%; border-collapse: collapse; }
 
 <?php
 $catIndex = 0;
-foreach ($itemsByCategory as $catName => $catItems):
+foreach ($pages as $pg):
     $catIndex++;
+    $catName  = $pg['cat'];
+    $catItems = $pg['items'];
 ?>
 
 <!-- ══ CATEGORY PAGE <?= $catIndex ?>/<?= $totalCategories ?> — <?= labClean($catName) ?> ══ -->
@@ -329,8 +376,13 @@ foreach ($itemsByCategory as $catName => $catItems):
 
     <!-- ── CATEGORY BANNER ── -->
     <div class="cat-banner">
-        <span class="cat-banner-name"><?= labClean($catName) ?></span>
-        <span class="cat-banner-count"><?= count($catItems) ?> test<?= count($catItems) !== 1 ? 's' : '' ?> in this category</span>
+        <span class="cat-banner-name"><?= labClean($catName) ?><?= $pg['parts'] > 1 ? ' (continued)' : '' ?></span>
+        <span class="cat-banner-count">
+            <?= $pg['catTotal'] ?> test<?= $pg['catTotal'] !== 1 ? 's' : '' ?> in this category
+            <?php if ($pg['parts'] > 1): ?>
+                &nbsp;&bull;&nbsp; page <?= $pg['part'] ?> of <?= $pg['parts'] ?>
+            <?php endif; ?>
+        </span>
     </div>
 
     <!-- ── TEST BLOCKS ── -->
@@ -397,40 +449,23 @@ foreach ($itemsByCategory as $catName => $catItems):
 
             <?php else: ?>
             <!-- Simple test: single result row -->
+            <?php if ($item['code'] === 'BGABORH'):
+                // Blood Group (ABO, Rh): stored as one combined string
+                // "ABO - B | Rh - POSITIVE" — split it back for two-line display,
+                // and there's no numeric normal range to show for this test.
+                $bgAboVal = ''; $bgRhVal = '';
+                if (preg_match('/ABO\s*-\s*([^|]+)\|\s*Rh\s*-\s*(.+)/i', $item['result_value'] ?? '', $bgm)) {
+                    $bgAboVal = trim($bgm[1]);
+                    $bgRhVal  = trim($bgm[2]);
+                }
+            ?>
             <div class="simple-result">
-                <?php if ($item['code'] !== 'BGABORH'): ?>
-                <div>
-                    <div class="sr-label">Normal Range</div>
-                    <div>
-                        <?= labClean($item['normal_range'] ?? '—') ?>
-                        <?php if ($item['unit'] && $item['unit'] !== 'Multiple' && $item['unit'] !== '—'): ?>
-                        &nbsp;<?= labClean($item['unit']) ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
                 <div>
                     <div class="sr-label">Result</div>
                     <div>
-                        <?php if ($item['result_value'] && $item['result_value'] !== 'pending'): ?>
-                        <?php if ($item['code'] === 'BGABORH'):
-                            $bgParts = explode(' | ', $item['result_value']);
-                            $bgAbo = $bgParts[0] ?? $item['result_value'];
-                            $bgRh  = $bgParts[1] ?? '';
-                        ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">
-                            ABO &nbsp;–&nbsp; <?= labClean(preg_replace('/^ABO\s*/i','',$bgAbo)) ?>
-                        </span>
-                        <?php if ($bgRh): ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;margin-top:6px;">
-                            Rh &nbsp;–&nbsp; <?= labClean(preg_replace('/^Rh\s*/i','',$bgRh)) ?>
-                        </span>
-                        <?php endif; ?>
-                        <?php else: ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
-                            <?= labClean($item['result_value']) ?>
-                        </span>
-                        <?php endif; ?>
+                        <?php if ($bgAboVal !== '' || $bgRhVal !== ''): ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">ABO&nbsp;&nbsp;&nbsp;<?= labClean($bgAboVal) ?></span>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">Rh&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?= labClean($bgRhVal) ?></span>
                         <?php else: ?>
                         <span style="color:#94a3b8;">Not entered</span>
                         <?php endif; ?>
@@ -449,6 +484,43 @@ foreach ($itemsByCategory as $catName => $catItems):
                 </div>
                 <?php endif; ?>
             </div>
+            <?php else: ?>
+            <div class="simple-result">
+                <div>
+                    <div class="sr-label">Normal Range</div>
+                    <div>
+                        <?= labClean($item['normal_range'] ?? '—') ?>
+                        <?php if ($item['unit'] && $item['unit'] !== 'Multiple' && $item['unit'] !== '—'): ?>
+                        &nbsp;<?= labClean($item['unit']) ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div>
+                    <div class="sr-label">Result</div>
+                    <div>
+                        <?php if ($item['result_value'] && $item['result_value'] !== 'pending'): ?>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
+                            <?= labClean($item['result_value']) ?>
+                        </span>
+                        <?php else: ?>
+                        <span style="color:#94a3b8;">Not entered</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php if ($item['result_notes']): ?>
+                <div>
+                    <div class="sr-label">Notes</div>
+                    <div><?= labClean($item['result_notes']) ?></div>
+                </div>
+                <?php endif; ?>
+                <?php if ($item['completed_at']): ?>
+                <div>
+                    <div class="sr-label">Completed</div>
+                    <div><?= date('d M Y', strtotime($item['completed_at'])) ?></div>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
             <?php endif; ?>
 
         </div><!-- /test-block -->
