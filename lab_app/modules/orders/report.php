@@ -464,8 +464,8 @@ foreach ($pages as $pg):
                     <div class="sr-label">Result</div>
                     <div>
                         <?php if ($bgAboVal !== '' || $bgRhVal !== ''): ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">ABO&nbsp;&nbsp;&nbsp;<?= labClean($bgAboVal) ?></span>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">Rh&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?= labClean($bgRhVal) ?></span>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">ABO&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgAboVal) ?></span>
+                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">Rh&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgRhVal) ?></span>
                         <?php else: ?>
                         <span style="color:#94a3b8;">Not entered</span>
                         <?php endif; ?>
