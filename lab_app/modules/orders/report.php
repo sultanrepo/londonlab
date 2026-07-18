@@ -454,7 +454,7 @@ foreach ($pages as $pg):
                 // "ABO - B | Rh - POSITIVE" — split it back for two-line display,
                 // and there's no numeric normal range to show for this test.
                 $bgAboVal = ''; $bgRhVal = '';
-                if (preg_match('/ABO\s*[-–—]\s*(.+?)\s*(?:\||\r?\n)\s*Rh\s*[-–—]\s*(.+)/i', $item['result_value'] ?? '', $bgm)) {
+                if (preg_match('/ABO\s*[-–—]?\s*(.+?)\s*(?:\||\r?\n)\s*Rh\s*[-–—]?\s*(.+)/i', $item['result_value'] ?? '', $bgm)) {
                     $bgAboVal = trim($bgm[1]);
                     $bgRhVal  = trim($bgm[2]);
                 }
