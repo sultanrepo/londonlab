@@ -43,7 +43,7 @@ $pageTitle = saClean($inv['invoice_no']);
             <div style="font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Lab Management Software</div>
             <div style="font-size:12px;opacity:.75;margin-top:8px;line-height:1.7;">
                 <?= PLATFORM_URL ?><br>
-                Billing Support: billing@londonlab.com
+                Billing Support: <?= BILLING_SUPPORT_EMAIL ?>
             </div>
         </div>
         <div style="text-align:right;">

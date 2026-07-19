@@ -14,6 +14,7 @@ define('PLATFORM_TAGLINE',  'Lab Management Software');
 define('PLATFORM_URL',      'https://londonlab.in/londonlab');
 define('SUPERADMIN_URL',    PLATFORM_URL . '/superadmin');
 define('LAB_APP_URL',       PLATFORM_URL . '/lab_app');
+define('BILLING_SUPPORT_EMAIL', 'billing@londonlab.in');
 
 define('ROOT_PATH',         __DIR__ . '/..');
 define('MASTER_PATH',       ROOT_PATH . '/master');
