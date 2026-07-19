@@ -119,6 +119,13 @@ $pageTitle = saClean($inv['invoice_no']);
                     <td class="text-end"><?= money($inv['gst_amount']) ?></td>
                 </tr>
                 <?php endif; ?>
+                <?php if (($inv['discount_amount'] ?? 0) > 0): ?>
+                <tr>
+                    <td>3</td>
+                    <td><span class="text-muted">Discount (<?= rtrim(rtrim(number_format($inv['discount_percent'], 2), '0'), '.') ?>%)</span></td>
+                    <td class="text-end text-success">&minus;<?= money($inv['discount_amount']) ?></td>
+                </tr>
+                <?php endif; ?>
             </tbody>
             <tfoot>
                 <tr style="background:#f5f3ff;">
