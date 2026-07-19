@@ -16,7 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $plan_id  = (int)$_POST['plan_id'];
     $amount   = (float)$_POST['amount'];
     $gst_amt  = round($amount * GST_PERCENT / 100, 2);
-    $total    = $amount + $gst_amt;
+    $preDiscountTotal = $amount + $gst_amt;
+    $discount_pct = (float)($_POST['discount_percent'] ?? 0);
+    if ($discount_pct < 0)   $discount_pct = 0;
+    if ($discount_pct > 100) $discount_pct = 100;
+    $discount_amt = round($preDiscountTotal * $discount_pct / 100, 2);
+    $total    = $preDiscountTotal - $discount_amt;
     $due_date = $_POST['due_date'] ?? date('Y-m-d', strtotime('+7 days'));
     $notes    = trim($_POST['notes'] ?? '');
 
@@ -27,9 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $invNo = generateInvoiceNo();
         $db->execute("
-            INSERT INTO billing_invoices (invoice_no,lab_id,plan_id,amount,gst_amount,total_amount,status,due_date,notes)
-            VALUES (?,?,?,?,?,?,'pending',?,?)
-        ", [$invNo, $lab_id, $plan_id, $amount, $gst_amt, $total, $due_date, $notes]);
+            INSERT INTO billing_invoices (invoice_no,lab_id,plan_id,amount,gst_amount,discount_percent,discount_amount,total_amount,status,due_date,notes)
+            VALUES (?,?,?,?,?,?,?,?,'pending',?,?)
+        ", [$invNo, $lab_id, $plan_id, $amount, $gst_amt, $discount_pct, $discount_amt, $total, $due_date, $notes]);
         $invId = $db->lastInsertId();
         saSetFlash('success', "Invoice $invNo generated successfully!");
         header('Location: ' . SUPERADMIN_URL . '/modules/billing/view.php?id=' . $invId); exit;
@@ -101,6 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label class="form-label">Total Amount</label>
                     <input type="text" id="totalDisplay" class="form-control bg-light fw-bold text-primary" readonly value="₹0.00">
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Discount (%)</label>
+                    <input type="number" name="discount_percent" id="discountInput" class="form-control"
+                           min="0" max="100" step="0.01" placeholder="0"
+                           value="<?= saClean($_POST['discount_percent'] ?? '') ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Payable Amount</label>
+                    <input type="text" id="payableDisplay" class="form-control bg-light fw-bold text-success" readonly value="₹0.00">
+                </div>
                 <div class="col-md-6">
                     <label class="form-label">Due Date</label>
                     <input type="date" name="due_date" class="form-control"
@@ -132,6 +147,8 @@ $extraJs = <<<'JS'
 const amtInput   = document.getElementById('amountInput');
 const gstDisplay = document.getElementById('gstDisplay');
 const totDisplay = document.getElementById('totalDisplay');
+const discInput  = document.getElementById('discountInput');
+const payDisplay = document.getElementById('payableDisplay');
 const planSelect = document.getElementById('planSelect');
 
 function fmt(n){ return '₹' + parseFloat(n).toFixed(2).replace(/\d(?=(\d{3})+\.)/g,'$&,'); }
@@ -139,9 +156,17 @@ function fmt(n){ return '₹' + parseFloat(n).toFixed(2).replace(/\d(?=(\d{3})+\
 function recalc() {
     const amt = parseFloat(amtInput.value) || 0;
     const gst = Math.round(amt * GSTPCT) / 100;
+    const preDiscountTotal = amt + gst;
+    let discPct = parseFloat(discInput.value) || 0;
+    if (discPct < 0) discPct = 0;
+    if (discPct > 100) discPct = 100;
+    const discAmt = Math.round(preDiscountTotal * discPct) / 100;
     gstDisplay.value = fmt(gst);
-    totDisplay.value = fmt(amt + gst);
+    totDisplay.value = fmt(preDiscountTotal);
+    payDisplay.value = fmt(preDiscountTotal - discAmt);
 }
+
+discInput.addEventListener('input', recalc);
 
 // Auto-fill amount from plan price
 planSelect.addEventListener('change', function() {

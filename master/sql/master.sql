@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS billing_invoices (
     plan_id INT,
     amount DECIMAL(10,2) NOT NULL,
     gst_amount DECIMAL(10,2) DEFAULT 0.00,
+    discount_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     total_amount DECIMAL(10,2) NOT NULL,
     status ENUM('pending','paid','overdue','cancelled') DEFAULT 'pending',
     due_date DATE,
