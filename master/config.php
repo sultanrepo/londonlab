@@ -22,8 +22,8 @@ define('SUPERADMIN_PATH',   ROOT_PATH . '/superadmin');
 define('LAB_APP_PATH',      ROOT_PATH . '/lab_app');
 define('SQL_TEMPLATE_PATH', ROOT_PATH . '/master/sql/lab_template.sql');
 
-define('TRIAL_DAYS',   14);
-define('GST_PERCENT',  18);
+define('TRIAL_DAYS',   14); //TO set the trail days for the Lab App
+define('GST_PERCENT',  18); //To set the GST percentage for the Lab App
 
 date_default_timezone_set('Asia/Kolkata');
 error_reporting(0);
