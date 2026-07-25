@@ -412,8 +412,8 @@ foreach ($pages as $pg):
                         <th style="width:34%">Parameter(s)</th>
                         <th style="width:15%">Short</th>
                         <th style="width:30%">Normal Range (<?= $order['gender'] ?>)</th>
-                        <th style="width:15%">Unit</th>
-                        <th style="width:30%">Result</th>
+                        <th style="width:20%">Unit</th>
+                        <th style="width:22%">Result</th>
                     </tr>
                 </thead>
                 <tbody class="sub-body">
