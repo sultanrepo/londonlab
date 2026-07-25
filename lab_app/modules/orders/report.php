@@ -402,7 +402,6 @@ foreach ($pages as $pg):
                     <span class="test-block-name"><?= labClean($item['test_name']) ?></span>
                     <span class="test-block-code"><?= labClean($item['code']) ?></span>
                 </div>
-                <span class="test-block-status st-<?= $overallSt ?>"><?= ucfirst($overallSt) ?></span>
             </div>
 
             <?php if ($isPanel): ?>
@@ -414,8 +413,7 @@ foreach ($pages as $pg):
                         <th style="width:10%">Short</th>
                         <th style="width:20%">Normal Range (<?= $order['gender'] ?>)</th>
                         <th style="width:10%">Unit</th>
-                        <th style="width:16%">Result</th>
-                        <th style="width:12%">Status</th>
+                        <th style="width:28%">Result</th>
                     </tr>
                 </thead>
                 <tbody class="sub-body">
@@ -423,24 +421,19 @@ foreach ($pages as $pg):
                         $rv     = $sp['result_value']  ?? '';
                         $rst    = $sp['result_status'] ?? 'pending';
                         $nr     = ($order['gender'] === 'Female') ? $sp['normal_range_female'] : $sp['normal_range_male'];
-                        $rowCls = match($rst) { 'abnormal' => 'row-ab', 'critical' => 'row-cr', default => '' };
+                        $rvBold = in_array($rst, ['abnormal','critical'], true) ? 'font-weight:700;' : '';
                     ?>
-                    <tr class="<?= $rowCls ?>">
+                    <tr>
                         <td style="font-weight:600;"><?= labClean($sp['parameter_name']) ?></td>
                         <td style="color:#64748b;font-family:'DM Mono',monospace;font-size:11px;"><?= labClean($sp['short_name']) ?></td>
                         <td style="color:#64748b;font-size:12px;"><?= labClean($nr ?? '—') ?></td>
                         <td style="color:#64748b;font-size:12px;"><?= labClean($sp['unit'] ?? '—') ?></td>
                         <td>
                             <?php if ($rv !== '' && $rv !== null): ?>
-                            <span class="rv-<?= $rst ?>"><?= labClean($rv) ?></span>
+                            <span style="color:#000;<?= $rvBold ?>"><?= labClean($rv) ?></span>
                             <?php else: ?>
                             <span style="color:#94a3b8;">—</span>
                             <?php endif; ?>
-                        </td>
-                        <td>
-                            <span class="test-block-status st-<?= $rst ?>" style="font-size:10px;padding:2px 8px;">
-                                <?= ucfirst($rst) ?>
-                            </span>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -464,8 +457,8 @@ foreach ($pages as $pg):
                     <div class="sr-label">Result</div>
                     <div>
                         <?php if ($bgAboVal !== '' || $bgRhVal !== ''): ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">ABO&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgAboVal) ?></span>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;display:block;">Rh&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgRhVal) ?></span>
+                        <span style="color:#000;font-size:15px;display:block;<?= in_array($overallSt, ['abnormal','critical'], true) ? 'font-weight:700;' : '' ?>">ABO&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgAboVal) ?></span>
+                        <span style="color:#000;font-size:15px;display:block;<?= in_array($overallSt, ['abnormal','critical'], true) ? 'font-weight:700;' : '' ?>">Rh&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;<?= labClean($bgRhVal) ?></span>
                         <?php else: ?>
                         <span style="color:#94a3b8;">Not entered</span>
                         <?php endif; ?>
@@ -499,7 +492,7 @@ foreach ($pages as $pg):
                     <div class="sr-label">Result</div>
                     <div>
                         <?php if ($item['result_value'] && $item['result_value'] !== 'pending'): ?>
-                        <span class="rv-<?= $overallSt ?>" style="font-size:15px;">
+                        <span style="color:#000;font-size:15px;<?= in_array($overallSt, ['abnormal','critical'], true) ? 'font-weight:700;' : '' ?>">
                             <?= labClean($item['result_value']) ?>
                         </span>
                         <?php else: ?>
@@ -526,15 +519,6 @@ foreach ($pages as $pg):
         </div><!-- /test-block -->
 
         <?php endforeach; // end tests in category ?>
-
-        <!-- Legend (on every page) -->
-        <div class="legend">
-            <strong style="font-size:12px;color:#64748b;">Legend:</strong>
-            <span class="leg-item"><span class="test-block-status st-normal"   style="font-size:11px;padding:2px 8px;">Normal</span> Within reference range</span>
-            <span class="leg-item"><span class="test-block-status st-abnormal" style="font-size:11px;padding:2px 8px;">Abnormal</span> Outside reference range</span>
-            <span class="leg-item"><span class="test-block-status st-critical" style="font-size:11px;padding:2px 8px;">Critical</span> Requires immediate attention</span>
-            <span class="leg-item"><span class="test-block-status st-pending"  style="font-size:11px;padding:2px 8px;">Pending</span> Result not yet entered</span>
-        </div>
 
     </div><!-- /body -->
 
