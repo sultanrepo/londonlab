@@ -411,7 +411,7 @@ foreach ($pages as $pg):
                     <tr>
                         <th style="width:34%">Parameter(s)</th>
                         <th style="width:15%">Short</th>
-                        <th style="width:22%">Normal Range (<?= $order['gender'] ?>)</th>
+                        <th style="width:30%">Normal Range (<?= $order['gender'] ?>)</th>
                         <th style="width:15%">Unit</th>
                         <th style="width:24%">Result</th>
                     </tr>
