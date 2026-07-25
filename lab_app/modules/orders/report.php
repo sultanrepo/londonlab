@@ -201,7 +201,7 @@ body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: #1e293b; 
 .st-pending  { background: #f1f5f9; color: #64748b; }
 
 /* ── SUB-PARAMETER TABLE ── */
-table { width: 100%; border-collapse: collapse; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .sub-head th { background: #fff; color: #54AAC3; font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; padding: 8px 12px; border-bottom: 2px solid #8BD5D0; text-align: left; }
 .sub-body td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f3; vertical-align: middle; }
 .sub-body tr:last-child td { border-bottom: none; }
@@ -409,11 +409,11 @@ foreach ($pages as $pg):
             <table>
                 <thead class="sub-head">
                     <tr>
-                        <th style="width:32%">Parameter</th>
+                        <th style="width:34%">Parameter(s)</th>
                         <th style="width:10%">Short</th>
-                        <th style="width:20%">Normal Range (<?= $order['gender'] ?>)</th>
-                        <th style="width:10%">Unit</th>
-                        <th style="width:28%">Result</th>
+                        <th style="width:22%">Normal Range (<?= $order['gender'] ?>)</th>
+                        <th style="width:15%">Unit</th>
+                        <th style="width:24%">Result</th>
                     </tr>
                 </thead>
                 <tbody class="sub-body">
